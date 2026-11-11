@@ -229,6 +229,34 @@ function check(name, cond, extra) {
   check("i18n: italian toolbar label", I18.sample("tb.run") === "Esegui");
   check("i18n: unknown key returns placeholder", I18.sample("no.such.key").indexOf("no.such.key") >= 0);
 
+  /* static key completeness across every literal t("...") call in src/ +
+     every dynamic prefix list used by the dialogs (dlg.title.<blocktype>,
+     input.hint.<Type>, tab.<panel>, menu.theme<Pref>, ex.<example>.<key>). */
+  vm.runInContext(`
+    globalThis.__blockTypes = ["declare", "assign", "input", "output", "if", "while", "for", "do", "call", "return", "comment"];
+  `, ctx);
+  const blockTypes = vm.runInContext("globalThis.__blockTypes", ctx);
+  for (const t of blockTypes) {
+    const key = "dlg.title." + t;
+    const missing = !I18.sample(key) || I18.sample(key).startsWith("[" + key + "]");
+    check("i18n: block-modal title translates for type " + t, !missing, key);
+  }
+  for (const code of ["Boolean", "Integer", "Real", "Char", "other"]) {
+    const key = "input.hint." + code;
+    const s = I18.sample(key);
+    check("i18n: input-hint translates for " + code, !!s && !s.startsWith("[" + key + "]"), key);
+  }
+  for (const p of ["console", "vars", "turtle"]) {
+    const key = "tab." + p;
+    const s = I18.sample(key);
+    check("i18n: bottom-tab label translates for " + p, !!s && !s.startsWith("[" + key + "]"), key);
+  }
+  for (const pref of ["Auto", "Light", "Dark"]) {
+    const key = "menu.theme" + pref;
+    const s = I18.sample(key);
+    check("i18n: theme menu label translates for " + pref, !!s && !s.startsWith("[" + key + "]"), key);
+  }
+
   console.log("\n" + passed + " passed, " + failed + " failed");
   process.exit(failed ? 1 : 0);
 })().catch((e) => {

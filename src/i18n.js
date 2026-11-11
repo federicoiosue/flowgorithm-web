@@ -42,7 +42,7 @@ var I18N = {
     "status.exampleLoaded": "Esempio caricato: ", "status.programLoaded": "Programma caricato: ",
     "status.theme": "Tema",
     // block modal titles and field labels
-    "dlg.title.decl": "Dichiarazione variabili", "dlg.title.assign": "Assegnazione",
+    "dlg.title.declare": "Dichiarazione variabili", "dlg.title.assign": "Assegnazione",
     "dlg.title.input": "Input", "dlg.title.output": "Output", "dlg.title.if": "If / Else",
     "dlg.title.while": "While", "dlg.title.for": "For", "dlg.title.do": "Do While",
     "dlg.title.call": "Chiamata funzione", "dlg.title.return": "Return", "dlg.title.comment": "Commento",
@@ -135,7 +135,7 @@ var I18N = {
     "status.done": "Done", "status.stopped": "Aborted.", "status.newProgram": "New program.",
     "status.exampleLoaded": "Example loaded: ", "status.programLoaded": "Program loaded: ",
     "status.theme": "Theme",
-    "dlg.title.decl": "Variable declarations", "dlg.title.assign": "Assignment",
+    "dlg.title.declare": "Variable declarations", "dlg.title.assign": "Assignment",
     "dlg.title.input": "Input", "dlg.title.output": "Output", "dlg.title.if": "If / Else",
     "dlg.title.while": "While", "dlg.title.for": "For", "dlg.title.do": "Do While",
     "dlg.title.call": "Function call", "dlg.title.return": "Return", "dlg.title.comment": "Comment",
