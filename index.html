@@ -1,0 +1,2929 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowWeb — Flowchart IDE</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 12px "Segoe UI", Tahoma, Verdana, sans-serif;
+    background: #f0f0f0; color: #222;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  button { font: inherit; }
+  input, select, textarea { font: inherit; border: 1px solid #7a7a7a; padding: 4px 6px; background: #fff; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #0078d4; }
+
+  /* ---- menu ---- */
+  #menubar { display: flex; background: #f0f0f0; border-bottom: 1px solid #d0d0d0; padding: 2px 4px; user-select: none; }
+  .menu-item { padding: 5px 10px; cursor: default; position: relative; }
+  .menu-item:hover, .menu-item.open { background: #cce4f6; }
+  .dropdown {
+    position: absolute; top: 100%; left: 0; min-width: 220px; background: #fff;
+    border: 1px solid #999; box-shadow: 3px 3px 8px rgba(0,0,0,.25); z-index: 200; padding: 3px 0;
+  }
+  .dropdown .di { padding: 5px 24px 5px 28px; cursor: default; white-space: nowrap; }
+  .dropdown .di:hover { background: #0078d4; color: #fff; }
+  .dropdown .di.disabled { color: #999; }
+  .dropdown .di.disabled:hover { background: none; color: #999; }
+  .dropdown .sep { height: 1px; background: #d9d9d9; margin: 3px 2px; }
+
+  /* ---- toolbar ---- */
+  #toolbar { display: flex; align-items: center; gap: 2px; padding: 5px 8px; background: #f7f7f7; border-bottom: 1px solid #d0d0d0; user-select: none; flex-wrap: wrap; }
+  .tbtn {
+    min-width: 54px; padding: 4px 6px; background: transparent; border: 1px solid transparent;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; color: #333;
+  }
+  .tbtn svg { width: 24px; height: 24px; }
+  .tbtn span { font-size: 10px; }
+  .tbtn:hover:not(:disabled) { background: #e5f1fb; border-color: #aec9e8; }
+  .tbtn:active:not(:disabled) { background: #cce4f6; }
+  .tbtn:disabled { opacity: .35; cursor: default; }
+  .tsep { width: 1px; height: 34px; background: #d0d0d0; margin: 0 5px; }
+  #speed-wrap { display: flex; align-items: center; gap: 5px; padding: 0 6px; }
+  #speed-wrap input { width: 130px; }
+  #zoom-wrap { display: flex; align-items: center; gap: 3px; }
+  #zoom-wrap .zbtn { width: 26px; height: 26px; padding: 0; }
+
+  /* ---- main ---- */
+  #main { flex: 1; display: flex; min-height: 0; }
+
+  #palette {
+    width: 190px; background: #f7f7f7; border-right: 1px solid #d0d0d0; overflow-y: auto;
+    padding: 6px; user-select: none;
+  }
+  #palette h3 { margin: 4px 4px 8px; font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; }
+  .pal-item {
+    display: flex; align-items: center; gap: 8px; padding: 5px 6px; margin-bottom: 3px;
+    background: #fff; border: 1px solid #dcdcdc; cursor: grab;
+  }
+  .pal-item:hover { background: #e5f1fb; border-color: #aec9e8; }
+  .pal-item svg { width: 56px; height: 26px; flex: none; }
+  .pal-item span { font-size: 11.5px; }
+
+  #center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  #fntabs { display: flex; align-items: flex-end; background: #e8e8e8; border-bottom: 1px solid #b8b8b8; padding: 4px 6px 0; overflow-x: auto; user-select: none; }
+  .fntab {
+    padding: 5px 14px; background: #d6d6d6; border: 1px solid #b0b0b0; border-bottom: none;
+    margin-right: 2px; cursor: pointer; white-space: nowrap; border-radius: 3px 3px 0 0;
+  }
+  .fntab.active { background: #fff; border-color: #999; font-weight: 600; }
+  .fntab.add { background: transparent; border-color: transparent; font-weight: 700; font-size: 14px; line-height: 1; }
+
+  #canvaswrap { flex: 1; overflow: auto; background: #fff; position: relative; }
+  #svg { display: block; cursor: default; }
+
+  /* svg bits */
+  .blk { cursor: pointer; }
+  .blk .shape { stroke: rgba(0,0,0,.28); stroke-width: 1; }
+  .blk.current .shape { stroke: #00e5ff; stroke-width: 3; animation: blkPulse .85s infinite; }
+  .blk.err .shape { stroke: #d40000; stroke-width: 3; }
+  @keyframes blkPulse { 50% { stroke: #ffffff; } }
+  .flowline { stroke: #555; stroke-width: 1.6; fill: none; }
+  .flowarrow { fill: #555; }
+  .lbl { font: 10.5px "Segoe UI"; fill: #666; }
+  .bt-text { font: 13px "Segoe UI", Tahoma; fill: #fff; }
+  .bt-text.comment { fill: #555; font-style: italic; }
+  .placeholder-box { fill: none; stroke: #b9b9b9; stroke-dasharray: 4 3; }
+  .placeholder-text { font: 11px "Segoe UI"; fill: #aaa; }
+  .dz { display: none; }
+  svg.dragging .dz { display: inline; }
+  .dz rect { fill: rgba(76,175,80,.14); stroke: #4caf50; stroke-dasharray: 4 3; }
+  .dz.hot rect { fill: rgba(76,175,80,.45); stroke: #2e7d32; }
+
+  /* ---- bottom panel ---- */
+  #bottom { height: 250px; display: flex; flex-direction: column; border-top: 1px solid #b8b8b8; background: #f7f7f7; min-height: 60px; }
+  #bottomtabs { display: flex; align-items: center; gap: 0; background: #e8e8e8; border-bottom: 1px solid #b8b8b8; padding: 3px 6px; }
+  .btab { padding: 4px 14px; border: none; background: transparent; cursor: pointer; border-radius: 3px 3px 0 0; }
+  .btab.active { background: #fff; font-weight: 600; box-shadow: inset 0 0 0 1px #ccc; }
+  .btab:hover:not(.active) { background: #dcdcdc; }
+  #bottomtabs .grow { flex: 1; }
+  #bottomtabs .mini { padding: 3px 10px; }
+  .bpanel { flex: 1; display: none; min-height: 0; }
+  .bpanel.active { display: flex; }
+  #console { flex: 1; overflow-y: auto; background: #fff; padding: 8px 10px; font: 12.5px Consolas, Menlo, monospace; white-space: pre-wrap; }
+  #console .err { color: #c62828; }
+  #console .in { color: #888; }
+  #console .sys { color: #569; }
+  #panel-vars { overflow: auto; }
+  #vars-table { width: 100%; border-collapse: collapse; background: #fff; }
+  #vars-table th { text-align: left; background: #efefef; border-bottom: 1px solid #ccc; padding: 4px 10px; font-weight: 600; }
+  #vars-table td { padding: 3px 10px; border-bottom: 1px solid #f2f2f2; font: 12.5px Consolas, Menlo, monospace; }
+  #vars-table .fnrow td { background: #e8eef7; font-weight: 600; font-family: "Segoe UI"; }
+  #vars-table td.changed { color: #0b7a1e; font-weight: 700; }
+  #vars-hint { padding: 12px; color: #888; }
+  #turtle-wrap { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; background: #fff; }
+  #turtle-path, #turtle-mark { position: absolute; }
+  #turtle-hud { position: absolute; top: 6px; left: 8px; font: 11px Consolas, monospace; color: #999; }
+
+  /* ---- status bar ---- */
+  #statusbar { display: flex; justify-content: space-between; padding: 4px 10px; background: #e8e8e8; border-top: 1px solid #c8c8c8; color: #555; user-select: none; }
+  #statusbar.err { color: #c62828; }
+
+  /* ---- modals ---- */
+  #modal-root { position: fixed; inset: 0; z-index: 500; pointer-events: none; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.28); display: flex; align-items: center; justify-content: center; pointer-events: auto; }
+  .dialog {
+    background: #f0f0f0; border: 1px solid #7a7a7a; box-shadow: 4px 4px 14px rgba(0,0,0,.35);
+    min-width: 380px; max-width: 640px; max-height: 85vh; display: flex; flex-direction: column;
+  }
+  .dialog-title { background: linear-gradient(#fdfdfd, #eaeaea); padding: 7px 12px; font-weight: 600; border-bottom: 1px solid #cfcfcf; display: flex; justify-content: space-between; }
+  .dialog-title .x { cursor: pointer; padding: 0 6px; }
+  .dialog-body { padding: 14px; overflow: auto; }
+  .dialog-foot { padding: 10px 14px; border-top: 1px solid #d5d5d5; display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+  .formrow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .formrow label { width: 110px; text-align: right; color: #444; flex: none; }
+  .formrow .fill { flex: 1; }
+  .rows-table { width: 100%; border-collapse: collapse; margin: 4px 0 10px; }
+  .rows-table td { padding: 2px 3px; }
+  .rows-table input, .rows-table select { width: 100%; }
+  .rows-table .delrow { width: 26px; }
+  .btn { min-width: 88px; padding: 6px 12px; border: 1px solid #adadad; background: linear-gradient(#fdfdfd, #e9e9e9); cursor: pointer; }
+  .btn:hover { background: #e5f1fb; border-color: #0078d4; }
+  .btn:active { background: #cce4f6; }
+  .btn.primary { font-weight: 600; }
+  .btn.small { min-width: 0; padding: 3px 9px; }
+  .modalerr { color: #c62828; margin-right: auto; font-weight: 600; }
+  .hint { color: #888; font-size: 11px; }
+  #codegen-text { width: 640px; height: 380px; font: 12px Consolas, Menlo, monospace; white-space: pre; }
+  .helpdoc { max-width: 620px; line-height: 1.55; }
+  .helpdoc h4 { margin: 14px 0 4px; }
+  .helpdoc code { background: #fff; border: 1px solid #ddd; padding: 0 4px; font: 11.5px Consolas, monospace; }
+  .helpdoc ul { margin: 4px 0; padding-left: 22px; }
+
+  /* context menu */
+  #ctxmenu { position: fixed; z-index: 600; background: #fff; border: 1px solid #999; box-shadow: 3px 3px 8px rgba(0,0,0,.25); padding: 3px 0; min-width: 170px; }
+</style>
+</head>
+<body>
+  <div id="menubar"></div>
+  <div id="toolbar"></div>
+  <div id="main">
+    <div id="palette"></div>
+    <div id="center">
+      <div id="fntabs"></div>
+      <div id="canvaswrap"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    </div>
+    <div id="bottom">
+      <div id="bottomtabs">
+        <button class="btab active" data-p="console">Console</button>
+        <button class="btab" data-p="vars">Variabili</button>
+        <button class="btab" data-p="turtle">Tartaruga</button>
+        <span class="grow"></span>
+        <button class="btn small mini" id="console-clear">Pulisci</button>
+      </div>
+      <div id="panel-console" class="bpanel active"><div id="console"></div></div>
+      <div id="panel-vars" class="bpanel"><div id="vars-hint">Le variabili compaiono durante l'esecuzione.</div></div>
+      <div id="panel-turtle" class="bpanel">
+        <div id="turtle-wrap">
+          <canvas id="turtle-path" width="420" height="420"></canvas>
+          <canvas id="turtle-mark" width="420" height="420"></canvas>
+          <div id="turtle-hud"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="statusbar"><span id="status-left">Pronto.</span><span id="status-right"></span></div>
+  <div id="modal-root"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   FlowWeb — IDE a flowchart ispirato a Flowgorithm (file singolo).
+   Editor drag&drop + interprete con debug + export codice + turtle.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------- utils */
+var NS = "http://www.w3.org/2000/svg";
+var MEAS = null;
+function textW(s, bold) {
+  if (typeof document !== "undefined") {
+    if (!MEAS) MEAS = document.createElement("canvas").getContext("2d");
+    MEAS.font = (bold ? "bold " : "") + '13px "Segoe UI", Tahoma, sans-serif';
+    return MEAS.measureText(s).width;
+  }
+  return s.length * 7;
+}
+var _uid = 1;
+function uid() { return "b" + (_uid++) + "_" + Math.floor(Math.random() * 1e6); }
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function download(name, text, mime) {
+  var blob = new Blob([text], { type: mime || "text/plain" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+}
+function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
+
+/* ------------------------------------------------- espressioni: tokenizer */
+var PUNCT2 = ["<=", ">=", "==", "!=", "<>"];
+function perr(msg) { var e = new Error(msg); e.parse = true; return e; }
+
+function tokenize(src) {
+  var toks = [], i = 0, n = src.length;
+  while (i < n) {
+    var c = src[i];
+    if (c === " " || c === "\t" || c === "\n" || c === "\r") { i++; continue; }
+    if (/[0-9]/.test(c) || (c === "." && /[0-9]/.test(src[i + 1] || ""))) {
+      var j = i, dot = false;
+      while (j < n && /[0-9]/.test(src[j])) j++;
+      if (src[j] === ".") { dot = true; j++; while (j < n && /[0-9]/.test(src[j])) j++; }
+      toks.push({ k: "num", raw: src.slice(i, j), int: !dot }); i = j; continue;
+    }
+    if (c === '"') {
+      var j2 = i + 1, s = "";
+      while (j2 < n && src[j2] !== '"') {
+        if (src[j2] === "\\" && j2 + 1 < n) { s += src[j2 + 1]; j2 += 2; }
+        else if (src[j2] === '"' && src[j2 + 1] === '"') { s += '"'; j2 += 2; }
+        else { s += src[j2]; j2++; }
+      }
+      if (j2 >= n) throw perr("Stringa non terminata (manca \" finale)");
+      toks.push({ k: "str", v: s }); i = j2 + 1; continue;
+    }
+    if (/[A-Za-z_]/.test(c)) {
+      var j3 = i;
+      while (j3 < n && /[A-Za-z0-9_]/.test(src[j3])) j3++;
+      var w = src.slice(i, j3), lw = w.toLowerCase();
+      if (lw === "true" || lw === "false") toks.push({ k: "bool", v: lw === "true" });
+      else if (lw === "and" || lw === "or" || lw === "not") toks.push({ k: "op", v: lw });
+      else if (lw === "mod") toks.push({ k: "op", v: "%" });
+      else toks.push({ k: "id", v: w });
+      i = j3; continue;
+    }
+    var two = src.substr(i, 2);
+    if (PUNCT2.indexOf(two) >= 0) {
+      toks.push({ k: "op", v: two === "<>" ? "!=" : (two === "=" ? "==" : two) });
+      i += 2; continue;
+    }
+    if ("+-*/%^()[],&<>=".indexOf(c) >= 0) {
+      toks.push({ k: "op", v: c === "=" ? "==" : c });
+      i++; continue;
+    }
+    throw perr("Carattere non valido: '" + c + "'");
+  }
+  toks.push({ k: "end" });
+  return toks;
+}
+
+var PREC = { "or": 1, "and": 2, "==": 3, "!=": 3, "<": 4, "<=": 4, ">": 4, ">=": 4, "&": 5, "+": 6, "-": 6, "*": 7, "/": 7, "%": 7, "^": 8 };
+
+function parse(src) {
+  src = (src || "").trim();
+  if (!src) throw perr("Espressione vuota");
+  var toks = tokenize(src), p = 0;
+  function peek() { return toks[p]; }
+  function next() { return toks[p++]; }
+  function expect(v) {
+    var t = next();
+    if (t.k !== "op" || t.v !== v) throw perr("Atteso '" + v + "'");
+  }
+  function atom() {
+    var t = next();
+    if (t.k === "end") throw perr("Espressione incompleta");
+    if (t.k === "num") return { t: "num", raw: t.raw, int: t.int };
+    if (t.k === "str") return { t: "str", v: t.v };
+    if (t.k === "bool") return { t: "bool", v: t.v };
+    if (t.k === "id") {
+      if (peek().k === "op" && peek().v === "(") {
+        next();
+        var args = [];
+        if (!(peek().k === "op" && peek().v === ")")) {
+          for (;;) {
+            args.push(expr(1));
+            if (peek().k === "op" && peek().v === ",") { next(); continue; }
+            break;
+          }
+        }
+        expect(")");
+        return { t: "call", name: t.v, args: args };
+      }
+      if (peek().k === "op" && peek().v === "[") {
+        next();
+        var idx = expr(1);
+        expect("]");
+        return { t: "idx", name: t.v, idx: idx };
+      }
+      return { t: "id", name: t.v };
+    }
+    if (t.k === "op" && t.v === "(") { var e = expr(1); expect(")"); return e; }
+    if (t.k === "op" && (t.v === "-" || t.v === "+")) return { t: "un", op: t.v, v: atom() };
+    if (t.k === "op" && t.v === "not") return { t: "un", op: "not", v: expr(3) };
+    throw perr("Token inatteso: '" + (t.v !== undefined ? t.v : "") + "'");
+  }
+  function expr(minP) {
+    var l = atom();
+    for (;;) {
+      var t = peek();
+      if (t.k !== "op") break;
+      var pr = PREC[t.v];
+      if (!pr || pr < minP) break;
+      next();
+      var r = expr(t.v === "^" ? pr : pr + 1);
+      l = { t: "bin", op: t.v, l: l, r: r };
+    }
+    return l;
+  }
+  var e = expr(1);
+  if (peek().k !== "end") throw perr("C'è del testo in più dopo l'espressione");
+  return e;
+}
+
+/* ------------------------------------------------------- modello dati */
+var TYPES = ["Integer", "Real", "String", "Boolean", "Char"];
+
+function newBlock(type) {
+  var b = { id: uid(), type: type };
+  switch (type) {
+    case "declare": b.vars = [{ name: "x", type: "Integer", arr: false, size: "10" }]; break;
+    case "assign": b.var = ""; b.index = null; b.expr = ""; break;
+    case "input": b.var = ""; b.index = null; b.prompt = ""; break;
+    case "output": b.expr = ""; b.nl = true; break;
+    case "if": b.cond = ""; b.then = []; b.else = []; break;
+    case "while": b.cond = ""; b.body = []; break;
+    case "for": b.var = ""; b.from = "1"; b.to = "10"; b.step = "1"; b.dir = "up"; b.body = []; break;
+    case "do": b.cond = ""; b.body = []; break;
+    case "call": b.fn = ""; b.args = []; break;
+    case "return": b.expr = ""; break;
+    case "comment": b.text = ""; break;
+  }
+  return b;
+}
+
+function newFn(name) {
+  return { id: uid(), name: name || "Funzione", params: [], ret: null, body: [] };
+}
+function newProgram() {
+  var f = newFn("Main");
+  return { app: "flowweb", version: 1, functions: [f] };
+}
+
+var PROGRAM = newProgram();
+var curFnId = null;
+
+function fns() { return PROGRAM.functions; }
+function fnById(id) {
+  for (var i = 0; i < fns().length; i++) if (fns()[i].id === id) return fns()[i];
+  return null;
+}
+function currentFn() {
+  return fnById(curFnId) || fns()[0];
+}
+function findFnByName(nm) {
+  nm = (nm || "").toLowerCase();
+  for (var i = 0; i < fns().length; i++) if (fns()[i].name.toLowerCase() === nm) return fns()[i];
+  return null;
+}
+
+function walkChain(arr, cb) {
+  for (var i = 0; i < arr.length; i++) {
+    var b = arr[i];
+    cb(b, arr, i);
+    if (b.type === "if") { walkChain(b.then, cb); walkChain(b.else, cb); }
+    if (b.type === "while" || b.type === "do" || b.type === "for") walkChain(b.body, cb);
+  }
+}
+function findBlock(id) {
+  var res = null;
+  walkChain(currentFn().body, function (b, arr, i) { if (b.id === id && !res) res = { block: b, arr: arr, index: i }; });
+  return res;
+}
+function collectVars(fn) {
+  var out = [];
+  (fn.params || []).forEach(function (p) { out.push({ name: p.name, type: p.type, arr: false, size: null, param: true }); });
+  walkChain(fn.body, function (b) {
+    if (b.type === "declare") b.vars.forEach(function (v) { out.push({ name: v.name, type: v.type, arr: !!v.arr, size: v.size, param: false }); });
+  });
+  return out;
+}
+function cloneBlock(b) {
+  var c = deepCopy(b);
+  c.id = uid();
+  if (c.then) { c.then = c.then.map(cloneBlock); c.else = c.else.map(cloneBlock); }
+  if (c.body) c.body = c.body.map(cloneBlock);
+  return c;
+}
+function blockText(b) {
+  switch (b.type) {
+    case "declare": return "Declare " + b.vars.map(function (v) { return v.name + " As " + v.type + (v.arr ? "[" + v.size + "]" : ""); }).join(", ");
+    case "assign": return "set " + (b.var || "?") + (b.index ? "[" + b.index + "]" : "") + " to " + (b.expr || "?");
+    case "input": return "Input " + (b.var || "?") + (b.index ? "[" + b.index + "]" : "");
+    case "output": return "Output " + (b.expr || "?");
+    case "if": return "If " + (b.cond || "?") + " Then";
+    case "while": return "While " + (b.cond || "?");
+    case "for": return "For " + (b.var || "?") + " = " + b.from + " " + (b.dir === "down" ? "downto" : "to") + " " + b.to + (b.step && b.step !== "1" ? " by " + b.step : "");
+    case "do": return "Do While " + (b.cond || "?");
+    case "call": return "Call " + (b.fn || "?") + "(" + (b.args || []).join(", ") + ")";
+    case "return": return b.expr ? "Return " + b.expr : "Return";
+    case "comment": return b.text || "commento";
+  }
+  return "?";
+}
+function blockTip(b) {
+  var s = b.type.toUpperCase() + "\n" + blockText(b);
+  if (b.type === "input" && b.prompt) s += "\nprompt: " + b.prompt;
+  return s;
+}
+
+/* ---------------------------------------------------------- esempi */
+var EXAMPLES = [
+  {
+    name: "Ciao, mondo!",
+    make: function () {
+      var p = newProgram();
+      var o = newBlock("output");
+      o.expr = '"Ciao, mondo!"';
+      p.functions[0].body.push(o);
+      return p;
+    }
+  },
+  {
+    name: "Indovina il numero",
+    make: function () {
+      var p = newProgram();
+      var m = p.functions[0];
+      var d = newBlock("declare");
+      d.vars = [
+        { name: "segreto", type: "Integer", arr: false, size: "10" },
+        { name: "tentativo", type: "Integer", arr: false, size: "10" },
+        { name: "n", type: "Integer", arr: false, size: "10" }
+      ];
+      m.body.push(d);
+      var a1 = newBlock("assign"); a1.var = "segreto"; a1.expr = "Random(100) + 1"; m.body.push(a1);
+      var a2 = newBlock("assign"); a2.var = "n"; a2.expr = "0"; m.body.push(a2);
+      var w = newBlock("while"); w.cond = "tentativo != segreto"; w.body = [];
+      var inp = newBlock("input"); inp.var = "tentativo"; inp.prompt = "Indovina il numero (1-100)";
+      var inc = newBlock("assign"); inc.var = "n"; inc.expr = "n + 1";
+      var iff = newBlock("if"); iff.cond = "tentativo < segreto";
+      var o1 = newBlock("output"); o1.expr = '"Troppo basso!"'; iff.then.push(o1);
+      var iff2 = newBlock("if"); iff2.cond = "tentativo > segreto";
+      var o2 = newBlock("output"); o2.expr = '"Troppo alto!"'; iff2.then.push(o2);
+      iff.else.push(iff2);
+      w.body.push(inp); w.body.push(inc); w.body.push(iff);
+      m.body.push(w);
+      var fin = newBlock("output"); fin.expr = '"Hai indovinato in " & n & " tentativi!"'; m.body.push(fin);
+      return p;
+    }
+  },
+  {
+    name: "Fattoriale ricorsivo",
+    make: function () {
+      var p = newProgram();
+      var m = p.functions[0];
+      var d = newBlock("declare");
+      d.vars = [{ name: "n", type: "Integer", arr: false, size: "10" }, { name: "r", type: "Integer", arr: false, size: "10" }];
+      m.body.push(d);
+      var i = newBlock("input"); i.var = "n"; i.prompt = "Un numero intero"; m.body.push(i);
+      var a = newBlock("assign"); a.var = "r"; a.expr = "Fattoriale(n)"; m.body.push(a);
+      var o = newBlock("output"); o.expr = '"Il fattoriale di " & n & " e\' " & r'; m.body.push(o);
+      var f = newFn("Fattoriale");
+      f.params = [{ name: "n", type: "Integer" }];
+      f.ret = "Integer";
+      var fi = newBlock("if"); fi.cond = "n <= 1";
+      var r1 = newBlock("return"); r1.expr = "1"; fi.then.push(r1);
+      var r2 = newBlock("return"); r2.expr = "n * Fattoriale(n - 1)"; fi.else.push(r2);
+      f.body.push(fi);
+      p.functions.push(f);
+      return p;
+    }
+  },
+  {
+    name: "Media di N numeri",
+    make: function () {
+      var p = newProgram();
+      var m = p.functions[0];
+      var d = newBlock("declare");
+      d.vars = [{ name: "n", type: "Integer", arr: false, size: "10" }, { name: "i", type: "Integer", arr: false, size: "10" }, { name: "s", type: "Real", arr: false, size: "10" }, { name: "v", type: "Real", arr: false, size: "10" }];
+      m.body.push(d);
+      var i1 = newBlock("input"); i1.var = "n"; i1.prompt = "Quanti numeri?"; m.body.push(i1);
+      var az = newBlock("assign"); az.var = "s"; az.expr = "0"; m.body.push(az);
+      var f = newBlock("for"); f.var = "i"; f.from = "1"; f.to = "n"; f.step = "1";
+      var iv = newBlock("input"); iv.var = "v"; iv.prompt = "Numero";
+      var aa = newBlock("assign"); aa.var = "s"; aa.expr = "s + v";
+      f.body.push(iv); f.body.push(aa);
+      m.body.push(f);
+      var o = newBlock("output"); o.expr = '"Media: " & (s / n)'; m.body.push(o);
+      return p;
+    }
+  },
+  {
+    name: "Tartaruga: spirale",
+    make: function () {
+      var p = newProgram();
+      var m = p.functions[0];
+      var d = newBlock("declare");
+      d.vars = [{ name: "i", type: "Integer", arr: false, size: "10" }];
+      m.body.push(d);
+      var f = newBlock("for"); f.var = "i"; f.from = "1"; f.to = "40"; f.step = "1";
+      var mv = newBlock("call"); mv.fn = "TurtleMove"; mv.args = ["i * 2"];
+      var tn = newBlock("call"); tn.fn = "TurtleTurn"; tn.args = ["90"];
+      f.body.push(mv); f.body.push(tn);
+      m.body.push(f);
+      var o = newBlock("output"); o.expr = '"Fatto!"'; m.body.push(o);
+      return p;
+    }
+  }
+];
+
+/* ------------------------------------------------- valori e tipi (run) */
+function defaultVal(type) {
+  switch (type) {
+    case "Integer": return { t: "Integer", v: 0 };
+    case "Real": return { t: "Real", v: 0 };
+    case "String": return { t: "String", v: "" };
+    case "Boolean": return { t: "Boolean", v: false };
+    case "Char": return { t: "Char", v: "" };
+  }
+  return { t: "Integer", v: 0 };
+}
+function isNum(v) { return v.t === "Integer" || v.t === "Real"; }
+function fmt(v) {
+  if (v.t === "Integer") return String(Math.trunc(v.v));
+  if (v.t === "Real") {
+    var x = v.v;
+    if (!isFinite(x)) return String(x);
+    if (Number.isInteger(x)) return String(x);
+    var s = x.toPrecision(10).replace(/0+$/, "").replace(/\.$/, "");
+    return s;
+  }
+  if (v.t === "Boolean") return v.v ? "true" : "false";
+  return String(v.v);
+}
+function rtErr(msg) {
+  var e = new Error(msg);
+  e.rt = true;
+  e.block = RT.currentBlock;
+  return e;
+}
+function coerce(val, type) {
+  if (val.t === type) return val;
+  if (type === "Real" && val.t === "Integer") return { t: "Real", v: val.v };
+  if (type === "String" && val.t === "Char") return { t: "String", v: val.v };
+  throw rtErr("Tipo non compatibile: non posso assegnare " + val.t + " a " + type + (val.t === "Real" && type === "Integer" ? " (usa ToInteger)" : ""));
+}
+
+/* ------------------------------------------------------------ turtle */
+var TURTLE = {
+  x: 0, y: 0, ang: 0, pen: true, color: "black", visible: true,
+  W: 420, H: 420
+};
+function turtleCtx() {
+  if (typeof document === "undefined") return null;
+  var c = document.getElementById("turtle-path");
+  return c ? c.getContext("2d") : null;
+}
+function turtleReset() {
+  TURTLE.x = 0; TURTLE.y = 0; TURTLE.ang = 0; TURTLE.pen = true; TURTLE.color = "black"; TURTLE.visible = true;
+  var ctx = turtleCtx();
+  if (ctx) { ctx.clearRect(0, 0, TURTLE.W, TURTLE.H); }
+  turtleDrawMark();
+  turtleHud();
+}
+function toCanvas(x, y) { return [TURTLE.W / 2 + x, TURTLE.H / 2 - y]; }
+function turtleLine(x1, y1, x2, y2) {
+  var ctx = turtleCtx(); if (!ctx) return;
+  ctx.strokeStyle = TURTLE.color; ctx.lineWidth = 2; ctx.lineCap = "round";
+  var a = toCanvas(x1, y1), b = toCanvas(x2, y2);
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+}
+function turtleMove(d) {
+  var rad = TURTLE.ang * Math.PI / 180;
+  var nx = TURTLE.x + d * Math.sin(rad);
+  var ny = TURTLE.y + d * Math.cos(rad);
+  if (TURTLE.pen) turtleLine(TURTLE.x, TURTLE.y, nx, ny);
+  TURTLE.x = nx; TURTLE.y = ny;
+  turtleDrawMark(); turtleHud();
+}
+function turtleGoTo(x, y) {
+  if (TURTLE.pen) turtleLine(TURTLE.x, TURTLE.y, x, y);
+  TURTLE.x = x; TURTLE.y = y;
+  turtleDrawMark(); turtleHud();
+}
+function turtleTurn(a) { TURTLE.ang = (TURTLE.ang + a) % 360; turtleDrawMark(); turtleHud(); }
+function turtleDrawMark() {
+  if (typeof document === "undefined") return;
+  var c = document.getElementById("turtle-mark"); if (!c) return;
+  var ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, TURTLE.W, TURTLE.H);
+  if (!TURTLE.visible) return;
+  var p = toCanvas(TURTLE.x, TURTLE.y);
+  var rad = TURTLE.ang * Math.PI / 180;
+  var dx = Math.sin(rad), dy = -Math.cos(rad); // direzione in coords canvas
+  ctx.save();
+  ctx.translate(p[0], p[1]);
+  ctx.rotate(Math.atan2(dy, dx));
+  ctx.fillStyle = "#1a5fb4";
+  ctx.beginPath();
+  ctx.moveTo(11, 0); ctx.lineTo(-7, -7); ctx.lineTo(-3, 0); ctx.lineTo(-7, 7);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function turtleHud() {
+  if (typeof document === "undefined") return;
+  var h = document.getElementById("turtle-hud"); if (!h) return;
+  h.textContent = "x: " + Math.round(TURTLE.x) + "  y: " + Math.round(TURTLE.y) + "  \u00e0ng: " + Math.round((TURTLE.ang + 360) % 360) + "\u00b0  penna: " + (TURTLE.pen ? "gi\u00f9" : "su");
+}
+
+/* ----------------------------------------------------------- runtime */
+var RT = {
+  state: "idle",           // idle | running
+  paused: false,
+  stepping: false,
+  stopFlag: false,
+  speed: 350,
+  steps: 0,
+  frames: [],
+  currentBlock: null,
+  _pauseP: null, _pauseR: null, _stepP: null, _stepR: null,
+
+  reset: function () {
+    this.state = "idle"; this.paused = false; this.stepping = false; this.stopFlag = false;
+    this.steps = 0; this.frames = []; this.currentBlock = null;
+    this._pauseP = this._pauseR = this._stepP = this._stepR = null;
+    this.highlight(null); this.updateWatch();
+  },
+
+  status: function () {
+    if (typeof document === "undefined") return;
+    var el = document.getElementById("status-left");
+    if (el) el.textContent = (this.state === "idle" ? "" : ("Esecuzione \u2014 passo " + this.steps + (this.paused ? " (in pausa)" : (this.stepping ? " (passo a passo)" : "")))) || "Pronto.";
+  },
+
+  highlight: function (id) {
+    if (typeof document === "undefined") return;
+    DRAW.els = DRAW.els || {};
+    Object.keys(DRAW.els).forEach(function (k) {
+      var g = DRAW.els[k];
+      if (g) g.classList.toggle("current", k === id);
+    });
+    if (id && DRAW.els[id]) {
+      var wrap = document.getElementById("canvaswrap");
+      var r = DRAW.els[id].getBoundingClientRect(), w = wrap.getBoundingClientRect();
+      if (r.top < w.top + 40 || r.bottom > w.bottom - 40) {
+        wrap.scrollTop += (r.top + r.height / 2) - (w.top + w.height / 2);
+      }
+    }
+  },
+
+  updateWatch: function () {
+    if (typeof document === "undefined") return;
+    renderWatch();
+  },
+
+  outLine: function (text, cls) {
+    if (typeof document === "undefined") return;
+    consoleAppend(text, cls);
+  },
+
+  askInput: function (b, typeName, varName) {
+    if (typeof document === "undefined") return Promise.resolve(null);
+    return askInputModal(b, typeName, varName);
+  },
+
+  gate: async function (b) {
+    this.steps++;
+    this.currentBlock = b;
+    this.highlight(b ? b.id : null);
+    this.updateWatch();
+    this.status();
+    if (this.stepping) {
+      this._stepP = new Promise(function (r) { RT._stepR = r; });
+      await this._stepP;
+    } else {
+      while (this.paused) {
+        this._pauseP = new Promise(function (r) { RT._pauseR = r; });
+        await this._pauseP;
+      }
+      await sleep(this.speed);
+    }
+    if (this.stopFlag) throw { stop: true };
+  },
+
+  pause: function () { this.paused = true; this.status(); },
+  resume: function () {
+    this.paused = false;
+    if (this._pauseR) { var r = this._pauseR; this._pauseR = null; r(); }
+    this.status();
+  },
+  doStep: function () {
+    this.stepping = true; this.paused = false;
+    if (this._pauseR) { var r = this._pauseR; this._pauseR = null; r(); }
+    if (this._stepR) { var s = this._stepR; this._stepR = null; s(); }
+  },
+  stop: function () {
+    this.stopFlag = true;
+    if (this._pauseR) { var r = this._pauseR; this._pauseR = null; r(); }
+    if (this._stepR) { var s = this._stepR; this._stepR = null; s(); }
+  }
+};
+
+function makeFrame(fn) {
+  var vars = {};
+  (fn.params || []).forEach(function (p) {
+    vars[p.name.toLowerCase()] = { name: p.name, type: p.type, arr: false, size: 0, value: null };
+  });
+  walkChain(fn.body, function (b) {
+    if (b.type !== "declare") return;
+    b.vars.forEach(function (v) {
+      var key = v.name.toLowerCase();
+      if (vars[key]) throw rtErr("Variabile dichiarata due volte: " + v.name);
+      if (v.arr) {
+        var size = constEval(v.size);
+        if (size === null || size < 1 || size > 100000) throw rtErr("Dimensione array non valida per " + v.name + ": " + v.size);
+        var items = [];
+        for (var i = 0; i < size; i++) items.push(defaultVal(v.type));
+        vars[key] = { name: v.name, type: v.type, arr: true, size: size, items: items };
+      } else {
+        vars[key] = { name: v.name, type: v.type, arr: false, size: 0, value: defaultVal(v.type) };
+      }
+    });
+  });
+  return { fn: fn, vars: vars };
+}
+
+function constEval(src) {
+  try {
+    var ast = parse(String(src));
+    return constAst(ast);
+  } catch (e) { return null; }
+}
+function constAst(n) {
+  if (n.t === "num") return +n.raw;
+  if (n.t === "un" && n.op === "-") return -constAst(n.v);
+  if (n.t === "bin") {
+    var a = constAst(n.l), b = constAst(n.r);
+    if (a === null || b === null) return null;
+    switch (n.op) { case "+": return a + b; case "-": return a - b; case "*": return a * b; case "/": return b === 0 ? null : a / b; }
+  }
+  return null;
+}
+
+/* --- valutazione espressioni --- */
+async function ev(n, frame) {
+  switch (n.t) {
+    case "num": return { t: n.int ? "Integer" : "Real", v: +n.raw };
+    case "str": return { t: "String", v: n.v };
+    case "bool": return { t: "Boolean", v: n.v };
+    case "id": {
+      var rec = frame.vars[n.name.toLowerCase()];
+      if (!rec) throw rtErr("Variabile non dichiarata: " + n.name);
+      if (rec.arr) return { t: "Array", ref: rec };
+      return { t: rec.type, v: rec.value.v };
+    }
+    case "idx": {
+      var rec2 = frame.vars[n.name.toLowerCase()];
+      if (!rec2) throw rtErr("Variabile non dichiarata: " + n.name);
+      if (!rec2.arr) throw rtErr(n.name + " non \u00e8 un array");
+      var iv = await ev(n.idx, frame);
+      return arrayGet(rec2, iv);
+    }
+    case "un": {
+      if (n.op === "not") {
+        var v0 = await ev(n.v, frame);
+        if (v0.t !== "Boolean") throw rtErr("'not' richiede un Boolean");
+        return { t: "Boolean", v: !v0.v };
+      }
+      var v1 = await ev(n.v, frame);
+      if (!isNum(v1)) throw rtErr("Operando non numerico per '" + n.op + "'");
+      return { t: v1.t, v: n.op === "-" ? -v1.v : v1.v };
+    }
+    case "bin": {
+      if ((n.op === "and" || n.op === "or")) {
+        var l = await ev(n.l, frame);
+        if (l.t !== "Boolean") throw rtErr("'" + n.op + "' richiede Boolean");
+        if (n.op === "and" && !l.v) return { t: "Boolean", v: false };
+        if (n.op === "or" && l.v) return { t: "Boolean", v: true };
+        var r = await ev(n.r, frame);
+        if (r.t !== "Boolean") throw rtErr("'" + n.op + "' richiede Boolean");
+        return { t: "Boolean", v: r.v };
+      }
+      var a = await ev(n.l, frame);
+      var b2 = await ev(n.r, frame);
+      return binop(n.op, a, b2);
+    }
+    case "call": return callExpr(n, frame);
+  }
+  throw rtErr("Espressione non valida");
+}
+
+function binop(op, a, b) {
+  if (op === "&") return { t: "String", v: fmt(a) + fmt(b) };
+  if (["==", "!=", "<", "<=", ">", ">="].indexOf(op) >= 0) {
+    var ok = false, res;
+    if (isNum(a) && isNum(b)) { ok = true; res = cmp(op, a.v, b.v); }
+    else if (a.t === "String" && b.t === "String") { ok = true; res = cmp(op, a.v, b.v); }
+    else if (a.t === "Boolean" && b.t === "Boolean") { ok = true; res = cmp(op, a.v ? 1 : 0, b.v ? 1 : 0); }
+    else if (a.t === "Char" && b.t === "Char") { ok = true; res = cmp(op, a.v, b.v); }
+    if (!ok) throw rtErr("Confronto non valido tra " + a.t + " e " + b.t);
+    return { t: "Boolean", v: res };
+  }
+  if (!isNum(a) || !isNum(b)) throw rtErr("Operando non numerico per '" + op + "' (" + a.t + " " + op + " " + b.t + ")");
+  var bothInt = a.t === "Integer" && b.t === "Integer";
+  switch (op) {
+    case "+": return { t: bothInt ? "Integer" : "Real", v: a.v + b.v };
+    case "-": return { t: bothInt ? "Integer" : "Real", v: a.v - b.v };
+    case "*": return { t: bothInt ? "Integer" : "Real", v: a.v * b.v };
+    case "/":
+      if (b.v === 0) throw rtErr("Divisione per zero");
+      if (bothInt) return { t: "Integer", v: Math.trunc(a.v / b.v) };
+      return { t: "Real", v: a.v / b.v };
+    case "%":
+      if (a.t !== "Integer" || b.t !== "Integer") throw rtErr("'mod' richiede due Integer");
+      if (b.v === 0) throw rtErr("Modulo per zero");
+      return { t: "Integer", v: ((a.v % b.v) + b.v) % b.v };
+    case "^": {
+      var r = Math.pow(a.v, b.v);
+      if (bothInt && b.v >= 0 && Number.isFinite(r)) return { t: "Integer", v: Math.round(r) };
+      return { t: "Real", v: r };
+    }
+  }
+  throw rtErr("Operatore non valido: " + op);
+}
+function cmp(op, a, b) {
+  switch (op) { case "==": return a === b; case "!=": return a !== b; case "<": return a < b; case "<=": return a <= b; case ">": return a > b; case ">=": return a >= b; }
+  return false;
+}
+
+function arrayGet(rec, iv) {
+  if (iv.t !== "Integer") throw rtErr("L'indice di un array deve essere Integer");
+  if (iv.v < 0 || iv.v >= rec.size) throw rtErr("Indice fuori dai limiti: " + iv.v + " (dimensione " + rec.size + ")");
+  return deepCopy(rec.items[iv.v]);
+}
+function arraySet(rec, iv, val) {
+  if (iv.t !== "Integer") throw rtErr("L'indice di un array deve essere Integer");
+  if (iv.v < 0 || iv.v >= rec.size) throw rtErr("Indice fuori dai limiti: " + iv.v + " (dimensione " + rec.size + ")");
+  rec.items[iv.v] = coerce(val, rec.type);
+}
+
+var TRUE_WORDS = ["true", "vero", "1", "si", "s\u00ec", "yes", "y", "vrai"];
+var FALSE_WORDS = ["false", "falso", "0", "no", "n"];
+
+function parseBoolWord(s) {
+  var w = String(s).trim().toLowerCase();
+  if (TRUE_WORDS.indexOf(w) >= 0) return true;
+  if (FALSE_WORDS.indexOf(w) >= 0) return false;
+  return null;
+}
+
+/* --- chiamate a funzioni builtin --- */
+async function callExpr(n, frame) {
+  var nm = n.name.toLowerCase();
+  var fn = findFnByName(n.name);
+  if (fn) {
+    if (n.args.length !== (fn.params || []).length)
+      throw rtErr(fn.name + " richiede " + (fn.params || []).length + " parametri, ricevuti " + n.args.length);
+    var vals = [];
+    for (var i = 0; i < n.args.length; i++) vals.push(await ev(n.args[i], frame));
+    return callFn(fn, vals);
+  }
+  return callBuiltin(nm, n.args, frame);
+}
+
+async function callBuiltin(nm, argNodes, frame) {
+  function arg(i) { return ev(argNodes[i], frame); }
+  function need(k) {
+    if (argNodes.length !== k) throw rtErr("La funzione richiede " + k + " argomento/i");
+  }
+  switch (nm) {
+    case "size": {
+      need(1);
+      var nd = argNodes[0];
+      if (nd.t !== "id") throw rtErr("Size richiede una variabile array");
+      var rec = frame.vars[nd.name.toLowerCase()];
+      if (!rec || !rec.arr) throw rtErr(nd.name + " non \u00e8 un array");
+      return { t: "Integer", v: rec.size };
+    }
+    case "turtlemove": { need(1); var d = await arg(0); if (!isNum(d)) throw rtErr("TurtleMove richiede un numero"); showTurtleTab(); turtleMove(d.v); return { t: "Boolean", v: true }; }
+    case "turtleturn": { need(1); var a = await arg(0); if (!isNum(a)) throw rtErr("TurtleTurn richiede un numero"); showTurtleTab(); turtleTurn(a.v); return { t: "Boolean", v: true }; }
+    case "turtlegoto": { need(2); var x = await arg(0), y = await arg(1); if (!isNum(x) || !isNum(y)) throw rtErr("TurtleGoTo richiede due numeri"); showTurtleTab(); turtleGoTo(x.v, y.v); return { t: "Boolean", v: true }; }
+    case "turtlepenup": case "turtlependown": TURTLE.pen = (nm === "turtlependown"); showTurtleTab(); return { t: "Boolean", v: true };
+    case "turtlepencolor": { need(1); var c = await arg(0); if (c.t !== "String") throw rtErr("TurtlePenColor richiede una stringa"); TURTLE.color = c.v; showTurtleTab(); return { t: "Boolean", v: true }; }
+    case "turtlehome": { TURTLE.x = 0; TURTLE.y = 0; TURTLE.ang = 0; showTurtleTab(); turtleDrawMark(); turtleHud(); return { t: "Boolean", v: true }; }
+    case "turtleclear": { var ctx = turtleCtx(); if (ctx) ctx.clearRect(0, 0, TURTLE.W, TURTLE.H); showTurtleTab(); return { t: "Boolean", v: true }; }
+    case "turtleshow": { TURTLE.visible = true; showTurtleTab(); turtleDrawMark(); return { t: "Boolean", v: true }; }
+    case "turtlehide": { TURTLE.visible = false; showTurtleTab(); turtleDrawMark(); return { t: "Boolean", v: true }; }
+  }
+
+  function s1() { need(1); return arg(0); }
+  switch (nm) {
+    case "tointeger": {
+      var v = await s1();
+      if (v.t === "String") {
+        var t = v.v.trim();
+        if (!/^[+-]?\d+$/.test(t)) throw rtErr("'" + v.v + "' non \u00e8 un numero intero valido");
+        return { t: "Integer", v: parseInt(t, 10) };
+      }
+      if (isNum(v)) return { t: "Integer", v: Math.trunc(v.v) };
+      if (v.t === "Boolean") return { t: "Integer", v: v.v ? 1 : 0 };
+      if (v.t === "Char") return { t: "Integer", v: v.v.charCodeAt(0) || 0 };
+      throw rtErr("ToInteger non supporta " + v.t);
+    }
+    case "toreal": {
+      var v2 = await s1();
+      if (v2.t === "String") {
+        var f = parseFloat(v2.v);
+        if (isNaN(f)) throw rtErr("'" + v2.v + "' non \u00e8 un numero valido");
+        return { t: "Real", v: f };
+      }
+      if (isNum(v2)) return { t: "Real", v: v2.v };
+      throw rtErr("ToReal non supporta " + v2.t);
+    }
+    case "tostring": { var v3 = await s1(); return { t: "String", v: fmt(v3) }; }
+    case "tochar": { var v4 = await s1(); if (v4.t !== "Integer") throw rtErr("ToChar richiede un Integer"); return { t: "Char", v: String.fromCharCode(v4.v) }; }
+    case "toascii": { var v5 = await s1(); if (v5.t !== "String" && v5.t !== "Char") throw rtErr("ToASCII richiede un carattere/stringa"); return { t: "Integer", v: (v5.v.length ? v5.v.charCodeAt(0) : 0) }; }
+    case "length": { var v6 = await s1(); if (v6.t !== "String") throw rtErr("Length richiede una String"); return { t: "Integer", v: v6.v.length }; }
+    case "char": {
+      need(2);
+      var s = await arg(0), ix = await arg(1);
+      if (s.t !== "String") throw rtErr("Char richiede una String");
+      if (ix.t !== "Integer") throw rtErr("Char richiede un indice Integer");
+      if (ix.v < 0 || ix.v >= s.v.length) throw rtErr("Indice fuori dai limiti: " + ix.v + " (lunghezza " + s.v.length + ")");
+      return { t: "Char", v: s.v[ix.v] };
+    }
+    case "abs": { var v7 = await s1(); if (!isNum(v7)) throw rtErr("Abs richiede un numero"); return { t: v7.t, v: Math.abs(v7.v) }; }
+    case "ceiling": { var v8 = await s1(); if (!isNum(v8)) throw rtErr("Ceiling richiede un numero"); return { t: "Integer", v: Math.ceil(v8.v) }; }
+    case "floor": { var v9 = await s1(); if (!isNum(v9)) throw rtErr("Floor richiede un numero"); return { t: "Integer", v: Math.floor(v9.v) }; }
+    case "round": { var v10 = await s1(); if (!isNum(v10)) throw rtErr("Round richiede un numero"); return { t: "Integer", v: Math.round(v10.v) }; }
+    case "sqrt": { var v11 = await s1(); if (!isNum(v11) || v11.v < 0) throw rtErr("Sqrt richiede un numero >= 0"); return { t: "Real", v: Math.sqrt(v11.v) }; }
+    case "sin": { var v12 = await s1(); if (!isNum(v12)) throw rtErr("Sin richiede un numero"); return { t: "Real", v: Math.sin(v12.v) }; }
+    case "cos": { var v13 = await s1(); if (!isNum(v13)) throw rtErr("Cos richiede un numero"); return { t: "Real", v: Math.cos(v13.v) }; }
+    case "tan": { var v14 = await s1(); if (!isNum(v14)) throw rtErr("Tan richiede un numero"); return { t: "Real", v: Math.tan(v14.v) }; }
+    case "log": { var v15 = await s1(); if (!isNum(v15) || v15.v <= 0) throw rtErr("Log richiede un numero > 0"); return { t: "Real", v: Math.log(v15.v) }; }
+    case "power": {
+      need(2);
+      var a2 = await arg(0), b3 = await arg(1);
+      if (!isNum(a2) || !isNum(b3)) throw rtErr("Power richiede due numeri");
+      var rr = Math.pow(a2.v, b3.v);
+      if (a2.t === "Integer" && b3.t === "Integer" && b3.v >= 0) return { t: "Integer", v: Math.round(rr) };
+      return { t: "Real", v: rr };
+    }
+    case "random": { var v16 = await s1(); if (v16.t !== "Integer" || v16.v < 1) throw rtErr("Random richiede un Integer > 0"); return { t: "Integer", v: Math.floor(Math.random() * v16.v) }; }
+    case "min": { need(2); var a3 = await arg(0), b4 = await arg(1); if (!isNum(a3) || !isNum(b4)) throw rtErr("Min richiede due numeri"); return { t: (a3.t === "Integer" && b4.t === "Integer") ? "Integer" : "Real", v: Math.min(a3.v, b4.v) }; }
+    case "max": { need(2); var a4 = await arg(0), b5 = await arg(1); if (!isNum(a4) || !isNum(b5)) throw rtErr("Max richiede due numeri"); return { t: (a4.t === "Integer" && b5.t === "Integer") ? "Integer" : "Real", v: Math.max(a4.v, b5.v) }; }
+  }
+  throw rtErr("Funzione non definita: " + nm);
+}
+
+async function callFn(fn, argVals) {
+  if (RT.frames.length > 400) throw rtErr("Ricorsione troppo profonda (limite 400 chiamate)");
+  var frame = makeFrame(fn);
+  (fn.params || []).forEach(function (p, i) {
+    frame.vars[p.name.toLowerCase()].value = coerce(argVals[i], p.type);
+  });
+  RT.frames.push(frame);
+  RT.updateWatch();
+  var ret = defaultVal(fn.ret || "Integer");
+  try {
+    await execChain(fn.body, frame);
+  } catch (e) {
+    if (e && e.__ret) { ret = e.value; }
+    else { RT.frames.pop(); RT.updateWatch(); throw e; }
+  }
+  RT.frames.pop();
+  RT.updateWatch();
+  return ret;
+}
+
+async function execChain(arr, frame) {
+  for (var i = 0; i < arr.length; i++) {
+    await RT.gate(arr[i]);
+    await execBlock(arr[i], frame);
+  }
+}
+
+async function execBlock(b, frame) {
+  switch (b.type) {
+    case "declare": case "comment": return;
+    case "assign": {
+      var val = await ev(parse(b.expr), frame);
+      setTarget(frame, b, val);
+      return;
+    }
+    case "input": {
+      var rec = targetRec(frame, b);
+      var typeName = rec.arr ? rec.type : rec.type;
+      var dispName = rec.name + (b.index ? "[" + b.index + "]" : "");
+      var ans = await RT.askInput(b, rec.type, dispName);
+      if (ans === null) throw { stop: true };
+      var v2 = coerceInput(ans, rec.type);
+      if (rec.arr) arraySet(rec, (await ev(parse(b.index), frame)), v2);
+      else rec.value = v2;
+      RT.outLine("> " + fmt(v2), "in");
+      return;
+    }
+    case "output": {
+      var o = await ev(parse(b.expr), frame);
+      RT.outLine(fmt(o) + (b.nl ? "\n" : ""));
+      return;
+    }
+    case "if": {
+      var c = await ev(parse(b.cond), frame);
+      if (c.t !== "Boolean") throw rtErr("La condizione di If deve essere Boolean (ricevuto " + c.t + ")");
+      await execChain(c.v ? b.then : b.else, frame);
+      return;
+    }
+    case "while": {
+      for (;;) {
+        var w = await ev(parse(b.cond), frame);
+        if (w.t !== "Boolean") throw rtErr("La condizione di While deve essere Boolean");
+        if (!w.v) break;
+        await execChain(b.body, frame);
+        await RT.gate(b);
+      }
+      return;
+    }
+    case "for": {
+      var rec2 = frame.vars[(b.var || "").toLowerCase()];
+      if (!rec2) throw rtErr("Variabile non dichiarata: " + b.var);
+      if (rec2.arr || rec2.type !== "Integer") throw rtErr("La variabile del For deve essere Integer");
+      var from = await ev(parse(b.from), frame);
+      var step = await ev(parse(b.step || "1"), frame);
+      if (!isNum(from) || !isNum(step)) throw rtErr("For: inizio e passo devono essere numerici");
+      if (step.v === 0) throw rtErr("For: il passo non pu\u00f2 essere 0");
+      var dirUp = b.dir !== "down";
+      if ((dirUp && step.v < 0) || (!dirUp && step.v > 0)) step = { t: step.t, v: -step.v };
+      rec2.value = { t: "Integer", v: Math.trunc(from.v) };
+      for (;;) {
+        var lim = await ev(parse(b.to), frame);
+        if (!isNum(lim)) throw rtErr("For: il limite deve essere numerico");
+        if (dirUp && rec2.value.v > lim.v) break;
+        if (!dirUp && rec2.value.v < lim.v) break;
+        await execChain(b.body, frame);
+        await RT.gate(b);
+        rec2.value = { t: "Integer", v: rec2.value.v + Math.trunc(step.v) };
+      }
+      return;
+    }
+    case "do": {
+      do {
+        await execChain(b.body, frame);
+        var d = await ev(parse(b.cond), frame);
+        if (d.t !== "Boolean") throw rtErr("La condizione di Do deve essere Boolean");
+        await RT.gate(b);
+      } while (d.v);
+      return;
+    }
+    case "call": {
+      var vals = [];
+      for (var i = 0; i < (b.args || []).length; i++) vals.push(await ev(parse(b.args[i]), frame));
+      var fn = findFnByName(b.fn);
+      if (fn) {
+        if ((b.args || []).length !== (fn.params || []).length)
+          throw rtErr(fn.name + " richiede " + (fn.params || []).length + " parametri");
+        var res = await callFn(fn, vals);
+        if (fn.ret) RT.lastCallResult = res;
+      } else {
+        // funzione predefinita (turtle, ecc.) richiamata come statement
+        await callBuiltin(b.fn.toLowerCase(), (b.args || []).map(function (a) { return parse(a); }), frame);
+      }
+      return;
+    }
+    case "return": {
+      var rv = b.expr ? await ev(parse(b.expr), frame) : defaultVal(frame.fn.ret || "Integer");
+      var e = { __ret: true, value: rv };
+      throw e;
+    }
+  }
+}
+
+function targetRec(frame, b) {
+  var rec = frame.vars[(b.var || "").toLowerCase()];
+  if (!rec) throw rtErr("Variabile non dichiarata: " + b.var);
+  if (b.index && !rec.arr) throw rtErr(rec.name + " non \u00e8 un array");
+  if (rec.arr && !b.index) throw rtErr("Serve un indice per l'array " + rec.name);
+  return rec;
+}
+function setTarget(frame, b, val) {
+  var rec = targetRec(frame, b);
+  if (rec.arr) {
+    var iv = evSync(parse(b.index), frame);
+    arraySet(rec, iv, val);
+  } else {
+    rec.value = coerce(val, rec.type);
+  }
+}
+function evSync(n, frame) {
+  if (n.t === "num") return { t: n.int ? "Integer" : "Real", v: +n.raw };
+  if (n.t === "id") {
+    var r = frame.vars[n.name.toLowerCase()];
+    if (!r) throw rtErr("Variabile non dichiarata: " + n.name);
+    if (r.arr) throw rtErr("Serve un indice per l'array " + r.name);
+    return r.value;
+  }
+  if (n.t === "bin") return binop(n.op, evSync(n.l, frame), evSync(n.r, frame));
+  if (n.t === "un") {
+    var v = evSync(n.v, frame);
+    if (n.op === "-") { if (!isNum(v)) throw rtErr("Operando non numerico"); return { t: v.t, v: -v.v }; }
+    if (n.op === "not") { if (v.t !== "Boolean") throw rtErr("'not' richiede Boolean"); return { t: "Boolean", v: !v.v }; }
+    return v;
+  }
+  throw rtErr("Indice array troppo complesso: usa una variabile");
+}
+function coerceInput(ans, type) {
+  switch (type) {
+    case "Integer":
+      if (!/^[+-]?\d+$/.test(ans.trim())) throw rtErr("'" + ans + "' non \u00e8 un numero intero valido");
+      return { t: "Integer", v: parseInt(ans.trim(), 10) };
+    case "Real": {
+      var f = parseFloat(ans);
+      if (isNaN(f)) throw rtErr("'" + ans + "' non \u00e8 un numero valido");
+      return { t: "Real", v: f };
+    }
+    case "Boolean": {
+      var b = parseBoolWord(ans);
+      if (b === null) throw rtErr("'" + ans + "' non \u00e8 un Boolean (usa true/false)");
+      return { t: "Boolean", v: b };
+    }
+    case "Char": return { t: "Char", v: ans.length ? ans[0] : "" };
+    default: return { t: "String", v: ans };
+  }
+}
+
+/* ------------------------------------------------ avvio / controlli run */
+async function startRun(mode) {
+  if (RT.state === "running") return;
+  RT.state = "running";
+  RT.paused = false; RT.stepping = (mode === "step");
+  RT.stopFlag = false; RT.steps = 0; RT.frames = []; RT.currentBlock = null;
+  consoleClear();
+  turtleReset();
+  setRunUI();
+  RT.outLine("\u2014 esecuzione di '" + fns()[0].name + "' \u2014\n", "sys");
+  var t0 = Date.now();
+  try {
+    await callFn(fns()[0], []);
+    RT.outLine("\u2014 fine, " + RT.steps + " passi in " + ((Date.now() - t0) / 1000).toFixed(1) + "s \u2014", "sys");
+    setStatus("Fatto: " + RT.steps + " passi.");
+  } catch (e) {
+    if (e && e.stop) {
+      RT.outLine("\u2014 interrotto \u2014", "sys");
+      setStatus("Interrotto.");
+    } else {
+      var msg = (e && e.message) ? e.message : String(e);
+      RT.outLine("Errore: " + msg, "err");
+      setStatus("Errore: " + msg, true);
+      if (e && e.block) { RT.highlight(e.block.id); DRAW.els[e.block.id] && DRAW.els[e.block.id].classList.add("err"); }
+    }
+  } finally {
+    RT.state = "idle"; RT.paused = false; RT.stepping = false;
+    RT.highlight(null);
+    setRunUI();
+  }
+}
+
+/* ============================================================== RENDER */
+var L = { H: 44, GAP: 28, BGAP: 64, MINW: 210, MAXW: 430, HOFF: 70, F0: 380 };
+var Z = 1;
+var DRAW = { zones: [], els: {}, minX: 1e9, minY: 1e9, maxX: -1e9, maxY: -1e9 };
+
+function svgEl(tag, attrs, parent) {
+  var e = document.createElementNS(NS, tag);
+  if (attrs) Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function track(x, y, w, h) {
+  DRAW.minX = Math.min(DRAW.minX, x); DRAW.minY = Math.min(DRAW.minY, y);
+  DRAW.maxX = Math.max(DRAW.maxX, x + (w || 0)); DRAW.maxY = Math.max(DRAW.maxY, y + (h || 0));
+}
+
+var COLORS = {
+  header: "#2e2e2e", declare: "#009688", assign: "#1e40af", input: "#0b8a3a",
+  output: "#4632b8", if: "#e87722", loop: "#bf8f00", call: "#7b1fa2",
+  return: "#c62828", comment: "#ffffff"
+};
+
+function blockColor(b) {
+  if (b.type === "while" || b.type === "for" || b.type === "do") return COLORS.loop;
+  return COLORS[b.type] || "#666";
+}
+function blockWidth(b) {
+  var t = blockText(b);
+  var extra = (b.type === "if") ? 130 : 90;
+  var min = (b.type === "if") ? 280 : L.MINW;
+  return clamp(textW(t) + extra, min, L.MAXW);
+}
+function chainWidth(arr) {
+  if (!arr.length) return 170;
+  var w = 0;
+  arr.forEach(function (b) {
+    var bw;
+    if (b.type === "if") bw = chainWidth(b.then) + L.BGAP + chainWidth(b.else);
+    else if (b.type === "while" || b.type === "for" || b.type === "do") bw = blockWidth(b) + L.HOFF + chainWidth(b.body) + 46;
+    else bw = blockWidth(b);
+    w = Math.max(w, bw);
+  });
+  return w;
+}
+
+function fitText(s, maxW) {
+  if (textW(s) <= maxW) return s;
+  while (s.length && textW(s + "\u2026") > maxW) s = s.slice(0, -1);
+  return s + "\u2026";
+}
+
+function drawTextLine(g, txt, x, y, maxW, cls) {
+  var t = svgEl("text", { x: x, y: y, "class": "bt-text" + (cls ? " " + cls : ""), "font-family": "Segoe UI, Tahoma, sans-serif" }, g);
+  t.textContent = fitText(txt, maxW);
+  return t;
+}
+
+function mkBlockGroup(b) {
+  var g = svgEl("g", { "class": "blk", "data-id": b.id }, DRAW.gRoot);
+  var ti = svgEl("title", {}, g);
+  ti.textContent = blockTip(b);
+  DRAW.els[b.id] = g;
+  return g;
+}
+
+function drawShapeRect(g, b, x, y, w, h, fill, rx) {
+  svgEl("rect", { x: x, y: y, width: w, height: h, rx: rx || 8, fill: fill, "class": "shape" }, g);
+  track(x, y, w, h);
+}
+function drawShapePar(g, b, x, y, w, h, fill) {
+  var s = 16;
+  var d = "M " + (x + s) + " " + y + " L " + (x + w) + " " + y + " L " + (x + w - s) + " " + (y + h) + " L " + x + " " + (y + h) + " Z";
+  svgEl("path", { d: d, fill: fill, "class": "shape" }, g);
+  track(x, y, w, h);
+}
+function drawShapeDiamond(g, b, x, y, w, h, fill) {
+  var d = "M " + x + " " + (y + h / 2) +
+    " L " + (x + w * 0.18) + " " + y +
+    " L " + (x + w * 0.82) + " " + y +
+    " L " + (x + w) + " " + (y + h / 2) +
+    " L " + (x + w * 0.82) + " " + (y + h) +
+    " L " + (x + w * 0.18) + " " + (y + h) + " Z";
+  svgEl("path", { d: d, fill: fill, "class": "shape" }, g);
+  track(x, y, w, h);
+}
+function drawArrowHead(g, x, y) {
+  svgEl("polygon", { points: (x - 5) + "," + (y - 9) + " " + (x + 5) + "," + (y - 9) + " " + x + "," + y, "class": "flowarrow" }, g);
+}
+function drawConnector(g, x, y1, y2) {
+  svgEl("line", { x1: x, y1: y1, x2: x, y2: y2 - 1, "class": "flowline" }, g);
+  drawArrowHead(g, x, y2);
+}
+function addZone(arr, index, cx, cy) {
+  var g = svgEl("g", { "class": "dz" }, DRAW.gRoot);
+  svgEl("rect", { x: cx - 52, y: cy - 15, width: 104, height: 30, rx: 6 }, g);
+  DRAW.zones.push({ arr: arr, index: index, cx: cx, cy: cy, el: g });
+}
+
+/* disegna una catena sulla linea di flusso x=F partendo dal punto di connessione cy.
+   Ritorna il punto di connessione in fondo (endY). */
+function drawChain(arr, F, cy) {
+  if (!arr.length) {
+    var py = cy + L.GAP;
+    var g = svgEl("g", {}, DRAW.gRoot);
+    svgEl("rect", { x: F - 85, y: py, width: 170, height: 36, rx: 8, "class": "placeholder-box" }, g);
+    var t = svgEl("text", { x: F, y: py + 22, "text-anchor": "middle", "class": "placeholder-text", "font-family": "Segoe UI" }, g);
+    t.textContent = "trascina un blocco qui";
+    track(F - 85, py, 170, 36);
+    addZone(arr, 0, F, py + 18);
+    return py + 36;
+  }
+  addZone(arr, 0, F, cy + L.GAP / 2);
+  var ey = cy;
+  for (var i = 0; i < arr.length; i++) {
+    var top = ey + L.GAP;
+    ey = drawBlock(arr[i], F, top);
+    if (i < arr.length - 1) {
+      addZone(arr, i + 1, F, ey + L.GAP / 2);
+      var g2 = svgEl("g", {}, DRAW.gRoot);
+      drawConnector(g2, F, ey, ey + L.GAP);
+    }
+  }
+  return ey;
+}
+
+function drawBlock(b, F, top) {
+  var g = mkBlockGroup(b);
+  var w = blockWidth(b);
+  var x = F - w / 2;
+  var endY = top + L.H;
+
+  switch (b.type) {
+    case "declare": case "assign": case "call": case "return": {
+      drawShapeRect(g, b, x, top, w, L.H, blockColor(b));
+      drawTextLine(g, blockText(b), x + 16, top + L.H / 2 + 4.5, w - 30);
+      break;
+    }
+    case "input": case "output": {
+      drawShapePar(g, b, x, top, w, L.H, blockColor(b));
+      drawTextLine(g, blockText(b), x + 26, top + L.H / 2 + 4.5, w - 46);
+      break;
+    }
+    case "comment": {
+      drawShapeRect(g, b, x, top, w, L.H, "#fcfcfc", 8);
+      g.firstChild.setAttribute("stroke", "#aaa");
+      g.firstChild.setAttribute("stroke-dasharray", "5 4");
+      drawTextLine(g, blockText(b), x + 16, top + L.H / 2 + 4.5, w - 30, "comment");
+      break;
+    }
+    case "if": {
+      var dh = 64;
+      drawShapeDiamond(g, b, x, top, w, dh, blockColor(b));
+      drawTextLine(g, blockText(b), x + w * 0.22, top + dh / 2 + 4.5, w * 0.6);
+      var thenW = chainWidth(b.then), elseW = chainWidth(b.else);
+      var total = Math.max(thenW + L.BGAP + elseW, w);
+      var F1 = F - total / 2 + thenW / 2;
+      var F2 = F + total / 2 - elseW / 2;
+      var elbowY = top + dh + 26;
+      var gl = svgEl("g", {}, DRAW.gRoot);
+      svgEl("line", { x1: F, y1: top + dh, x2: F, y2: elbowY, "class": "flowline" }, gl);
+      svgEl("line", { x1: F, y1: elbowY, x2: F1, y2: elbowY, "class": "flowline" }, gl);
+      svgEl("line", { x1: F, y1: elbowY, x2: F2, y2: elbowY, "class": "flowline" }, gl);
+      var lt = svgEl("text", { x: F1 + 6, y: elbowY - 5, "class": "lbl", "font-family": "Segoe UI" }, gl);
+      lt.textContent = "true";
+      var lf = svgEl("text", { x: F2 + 6, y: elbowY - 5, "class": "lbl", "font-family": "Segoe UI" }, gl);
+      lf.textContent = "false";
+      drawConnector(gl, F1, elbowY, elbowY + L.GAP);
+      drawConnector(gl, F2, elbowY, elbowY + L.GAP);
+      var tEnd = drawChain(b.then, F1, elbowY);
+      var eEnd = drawChain(b.else, F2, elbowY);
+      var mergeY = Math.max(tEnd, eEnd) + 26;
+      svgEl("line", { x1: F1, y1: tEnd, x2: F1, y2: mergeY, "class": "flowline" }, gl);
+      svgEl("line", { x1: F2, y1: eEnd, x2: F2, y2: mergeY, "class": "flowline" }, gl);
+      svgEl("line", { x1: F1, y1: mergeY, x2: F2, y2: mergeY, "class": "flowline" }, gl);
+      svgEl("line", { x1: F, y1: mergeY, x2: F, y2: mergeY, "class": "flowline" }, gl);
+      endY = mergeY;
+      break;
+    }
+    case "while": case "for": case "do": {
+      drawShapeRect(g, b, x, top, w, L.H, blockColor(b), 14);
+      drawTextLine(g, blockText(b), x + 16, top + L.H / 2 + 4.5, w - 30);
+      var F2 = F + w / 2 + L.HOFF;
+      var elbowY = top + L.H / 2;
+      var gl2 = svgEl("g", {}, DRAW.gRoot);
+      svgEl("line", { x1: F + w / 2, y1: elbowY, x2: F2, y2: elbowY, "class": "flowline" }, gl2);
+      var bodyStart = elbowY + 20;
+      drawConnector(gl2, F2, elbowY, bodyStart + L.GAP);
+      var bodyEnd = drawChain(b.body, F2, bodyStart);
+      // linea di ritorno (tratteggiata)
+      var bx = F2 + chainWidth(b.body) / 2 + 46;
+      var d2 = "M " + F2 + " " + bodyEnd + " L " + bx + " " + bodyEnd +
+        " L " + bx + " " + (top + 10) + " L " + (F + w / 2 + 10) + " " + (top + 10);
+      svgEl("path", { d: d2, "class": "flowline", "stroke-dasharray": "5 4", fill: "none" }, gl2);
+      var ah = svgEl("polygon", {
+        points: (F + w / 2 + 18) + "," + (top + 6) + " " + (F + w / 2 + 18) + "," + (top + 14) + " " + (F + w / 2 + 10) + "," + (top + 10),
+        "class": "flowarrow"
+      }, gl2);
+      track(bx, top + 10, 0, bodyEnd - top);
+      break;
+    }
+  }
+  return endY;
+}
+
+function fnHeader(fn) {
+  var s = fn.name + "(" + (fn.params || []).map(function (p) { return p.name; }).join(", ") + ")";
+  if (fn.ret) s += " : " + fn.ret;
+  return s;
+}
+
+function render() {
+  var svg = document.getElementById("svg");
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  DRAW = { zones: [], els: {}, minX: 1e9, minY: 1e9, maxX: -1e9, maxY: -1e9, gRoot: svgEl("g", {}, svg) };
+  var fn = currentFn();
+  var F = L.F0, y = 24;
+  var head = blockWidth({ type: "declare", vars: [] });
+  var hw = clamp(textW(fnHeader(fn), true) + 90, 220, 460);
+  var hg = svgEl("g", { "class": "blk", "data-id": "__fn__" }, DRAW.gRoot);
+  var hi = svgEl("title", {}, hg); hi.textContent = "Doppio clic per modificare la funzione";
+  svgEl("rect", { x: F - hw / 2, y: y, width: hw, height: L.H, rx: L.H / 2, fill: COLORS.header, "class": "shape" }, hg);
+  var ht = svgEl("text", { x: F, y: y + L.H / 2 + 4.5, "text-anchor": "middle", "font-weight": "bold", "font-family": "Segoe UI", fill: "#fff" }, hg);
+  ht.textContent = fitText(fnHeader(fn), hw - 40);
+  track(F - hw / 2, y, hw, L.H);
+  DRAW.els["__fn__"] = hg;
+  var cy = y + L.H;
+  var gl = svgEl("g", {}, DRAW.gRoot);
+  drawConnector(gl, F, cy, cy + L.GAP);
+  var endY = drawChain(fn.body, F, cy);
+  var gl2 = svgEl("g", {}, DRAW.gRoot);
+  drawConnector(gl2, F, endY, endY + L.GAP);
+  var eg = svgEl("g", {}, DRAW.gRoot);
+  svgEl("rect", { x: F - 45, y: endY + L.GAP, width: 90, height: 34, rx: 17, fill: COLORS.header, "class": "shape" }, eg);
+  var et = svgEl("text", { x: F, y: endY + L.GAP + 22, "text-anchor": "middle", "font-weight": "bold", "font-family": "Segoe UI", fill: "#fff" }, eg);
+  et.textContent = "End";
+  track(F - 45, endY + L.GAP, 90, 34);
+
+  DRAW.minX -= 30; DRAW.minY -= 20; DRAW.maxX += 30; DRAW.maxY += 30;
+  applyZoom();
+  updateTabs();
+  updateStatusRight();
+}
+
+function applyZoom() {
+  var svg = document.getElementById("svg");
+  var w = Math.max(60, DRAW.maxX - DRAW.minX), h = Math.max(60, DRAW.maxY - DRAW.minY);
+  svg.setAttribute("width", w * Z);
+  svg.setAttribute("height", h * Z);
+  DRAW.gRoot.setAttribute("transform", "scale(" + Z + ") translate(" + (-DRAW.minX) + "," + (-DRAW.minY) + ")");
+}
+function svgPoint(e) {
+  var svg = document.getElementById("svg");
+  var r = svg.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / Z + DRAW.minX, y: (e.clientY - r.top) / Z + DRAW.minY };
+}
+function zoneAt(p) {
+  var best = null;
+  DRAW.zones.forEach(function (z) {
+    if (Math.abs(p.x - z.cx) < 120 && Math.abs(p.y - z.cy) < 26) best = z;
+  });
+  return best;
+}
+
+function renderWatch() {
+  var host = document.getElementById("panel-vars");
+  var hint = document.getElementById("vars-hint");
+  var table = document.getElementById("vars-table");
+  if (!RT.frames.length) {
+    if (table) table.remove();
+    if (!hint) { host.innerHTML = ""; var d = document.createElement("div"); d.id = "vars-hint"; d.textContent = "Le variabili compaiono durante l'esecuzione."; host.appendChild(d); }
+    return;
+  }
+  if (hint) hint.remove();
+  var html = '<table id="vars-table"><tr><th>Variabile</th><th>Tipo</th><th>Valore</th></tr>';
+  var prev = host._prev || {};
+  var now = {};
+  RT.frames.forEach(function (fr) {
+    html += '<tr class="fnrow"><td colspan="3">' + esc(fr.fn.name) + "</td></tr>";
+    Object.keys(fr.vars).forEach(function (k) {
+      var rec = fr.vars[k];
+      var valStr;
+      if (rec.arr) {
+        var parts = rec.items.slice(0, 8).map(fmt);
+        valStr = "[" + parts.join(", ") + (rec.items.length > 8 ? ", \u2026" : "") + "]";
+      } else valStr = fmt(rec.value);
+      var key = fr.fn.name + "." + k;
+      now[key] = valStr;
+      var changed = prev[key] !== undefined && prev[key] !== valStr;
+      html += "<tr><td>" + esc(rec.name) + "</td><td>" + esc(rec.type + (rec.arr ? "[" + rec.size + "]" : "")) + "</td><td" + (changed ? ' class="changed"' : "") + ">" + esc(valStr) + "</td></tr>";
+    });
+  });
+  html += "</table>";
+  host.innerHTML = html;
+  host._prev = now;
+}
+
+/* ============================================================= CODEGEN */
+function typeOfName(name, fn) {
+  var nm = name.toLowerCase();
+  var found = null;
+  (fn.params || []).forEach(function (p) { if (p.name.toLowerCase() === nm) found = p.type; });
+  if (found) return found;
+  walkChain(fn.body, function (b) {
+    if (b.type === "declare") b.vars.forEach(function (v) { if (v.name.toLowerCase() === nm) found = v.type; });
+  });
+  return found;
+}
+
+var BUILTIN_RET = {
+  tointeger: "Integer", toreal: "Real", tostring: "String", tochar: "Char",
+  toascii: "Integer", length: "Integer", size: "Integer", char: "Char",
+  ceiling: "Integer", floor: "Integer", round: "Integer", random: "Integer",
+  sqrt: "Real", sin: "Real", cos: "Real", tan: "Real", log: "Real",
+  turtlemove: "Boolean", turtleturn: "Boolean", turtlegoto: "Boolean",
+  turtlepenup: "Boolean", turtlependown: "Boolean", turtlepencolor: "Boolean",
+  turtlehome: "Boolean", turtleclear: "Boolean", turtleshow: "Boolean", turtlehide: "Boolean"
+};
+
+function inferType(n, fn) {
+  switch (n.t) {
+    case "num": return n.int ? "Integer" : "Real";
+    case "str": return "String";
+    case "bool": return "Boolean";
+    case "id": { var t = typeOfName(n.name, fn); return t || "Unknown"; }
+    case "idx": { var t2 = typeOfName(n.name, fn); return t2 || "Unknown"; }
+    case "un": {
+      if (n.op === "not") return "Boolean";
+      var ut = inferType(n.v, fn);
+      return ut === "Real" ? "Real" : "Integer";
+    }
+    case "call": {
+      var f = findFnByName(n.name);
+      if (f) return f.ret || "Unknown";
+      var nm = n.name.toLowerCase();
+      if (BUILTIN_RET[nm]) return BUILTIN_RET[nm];
+      if (nm === "abs") return inferType(n.args[0], fn) === "Real" ? "Real" : "Integer";
+      if (nm === "power") return (inferType(n.args[0], fn) === "Integer" && inferType(n.args[1], fn) === "Integer") ? "Integer" : "Real";
+      if (nm === "min" || nm === "max") return (inferType(n.args[0], fn) === "Integer" && inferType(n.args[1], fn) === "Integer") ? "Integer" : "Real";
+      return "Unknown";
+    }
+    case "bin": {
+      if (n.op === "&") return "String";
+      if (["==", "!=", "<", "<=", ">", ">="].indexOf(n.op) >= 0) return "Boolean";
+      var lt = inferType(n.l, fn), rt2 = inferType(n.r, fn);
+      if (lt === "String" || rt2 === "String") return "String";
+      if (lt === "Real" || rt2 === "Real") return "Real";
+      return "Integer";
+    }
+  }
+  return "Unknown";
+}
+
+function q(s) { return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"'; }
+
+function emitStrC(n, fn) {
+  var t = inferType(n, fn);
+  var e = emit(n, "c", fn);
+  if (t === "String" || t === "Unknown") return e;
+  if (t === "Integer") return "str_int(" + e + ")";
+  if (t === "Real") return "str_real(" + e + ")";
+  if (t === "Boolean") return "str_bool(" + e + ")";
+  if (t === "Char") return "str_char(" + e + ")";
+  return e;
+}
+
+function emit(n, lang, fn) {
+  switch (n.t) {
+    case "num": return n.raw;
+    case "str": return q(n.v);
+    case "bool": return lang === "python" ? (n.v ? "True" : "False") : String(n.v);
+    case "id": return n.name;
+    case "idx": return n.name + "[" + emit(n.idx, lang, fn) + "]";
+    case "un": {
+      if (n.op === "not") return lang === "python" ? "not (" + emit(n.v, lang, fn) + ")" : "!(" + emit(n.v, lang, fn) + ")";
+      return n.op + "(" + emit(n.v, lang, fn) + ")";
+    }
+    case "call": return emitCall(n, lang, fn);
+    case "bin": {
+      var l = emit(n.l, lang, fn), r = emit(n.r, lang, fn);
+      switch (n.op) {
+        case "==": return "(" + l + " == " + r + ")";
+        case "!=": return "(" + l + " != " + r + ")";
+        case "<": case "<=": case ">": case ">=": return "(" + l + " " + n.op + " " + r + ")";
+        case "+": case "-": case "*": return "(" + l + " " + n.op + " " + r + ")";
+        case "%": return "(" + l + " % " + r + ")";
+        case "&":
+          if (lang === "c") return "concat(" + emitStrC(n.l, fn) + ", " + emitStrC(n.r, fn) + ")";
+          return "(_fmt(" + l + ") + _fmt(" + r + "))";
+        case "/":
+          if (inferType(n.l, fn) === "Integer" && inferType(n.r, fn) === "Integer") {
+            if (lang === "c" || lang === "java") return "(" + l + " / " + r + ")";
+            if (lang === "python") return "_tdiv(" + l + ", " + r + ")";
+            return "Math.trunc(" + l + " / " + r + ")";
+          }
+          return "(" + l + " / " + r + ")";
+        case "^":
+          if (lang === "python") return "(" + l + " ** " + r + ")";
+          if (lang === "js") return "Math.pow(" + l + ", " + r + ")";
+          if (inferType(n, fn) === "Integer")
+            return (lang === "c" ? "(int)pow(" + l + ", " + r + ")" : "(int)Math.pow(" + l + ", " + r + ")");
+          return (lang === "c" ? "pow(" + l + ", " + r + ")" : "Math.pow(" + l + ", " + r + ")");
+      }
+    }
+  }
+  return "???";
+}
+
+function emitCall(n, lang, fn) {
+  var nm = n.name.toLowerCase();
+  var a = n.args.map(function (x) { return emit(x, lang, fn); });
+  var uf = findFnByName(n.name);
+  if (uf) return n.name + "(" + a.join(", ") + ")";
+  function A(i) { return a[i]; }
+  function AN(i) { return n.args[i]; }
+  switch (nm) {
+    case "tointeger":
+      return lang === "python" ? "int(" + A(0) + ")" : lang === "js" ? "Math.trunc(" + A(0) + ")" : "(int)(" + A(0) + ")";
+    case "toreal":
+      return lang === "python" ? "float(" + A(0) + ")" : lang === "js" ? "Number(" + A(0) + ")" : "(double)(" + A(0) + ")";
+    case "tostring":
+      return lang === "c" ? emitStrC(AN(0), fn) : "_fmt(" + A(0) + ")";
+    case "tochar":
+      return lang === "python" ? "chr(" + A(0) + ")" : lang === "js" ? "String.fromCharCode(" + A(0) + ")" : "(char)(" + A(0) + ")";
+    case "toascii":
+      return lang === "python" ? "ord(" + A(0) + ")" : lang === "js" ? "(" + A(0) + ").charCodeAt(0)" : "(int)(" + A(0) + ")";
+    case "length":
+      return lang === "python" ? "len(" + A(0) + ")" : lang === "js" ? "(" + A(0) + ").length" : "strlen(" + A(0) + ")";
+    case "size":
+      if (lang === "c") { var nmv = AN(0).name; return "(sizeof(" + nmv + ")/sizeof(" + nmv + "[0]))"; }
+      return lang === "python" ? "len(" + A(0) + ")" : "(" + A(0) + ").length";
+    case "char":
+      return lang === "python" ? "(" + A(0) + "[" + A(1) + "])" : lang === "js" ? "(" + A(0) + "[" + A(1) + "])" : lang === "c" ? "(" + A(0) + "[" + A(1) + "])" : "(" + A(0) + ").charAt(" + A(1) + ")";
+    case "abs":
+      return lang === "python" ? "abs(" + A(0) + ")" : lang === "js" ? "Math.abs(" + A(0) + ")" : (inferType(AN(0), fn) === "Real" ? "fabs(" + A(0) + ")" : "abs(" + A(0) + ")");
+    case "ceiling": return lang === "python" ? "math.ceil(" + A(0) + ")" : lang === "js" ? "Math.ceil(" + A(0) + ")" : "ceil(" + A(0) + ")";
+    case "floor": return lang === "python" ? "math.floor(" + A(0) + ")" : lang === "js" ? "Math.floor(" + A(0) + ")" : "floor(" + A(0) + ")";
+    case "round": return lang === "python" ? "round(" + A(0) + ")" : lang === "js" ? "Math.round(" + A(0) + ")" : "round(" + A(0) + ")";
+    case "sqrt": return lang === "python" ? "math.sqrt(" + A(0) + ")" : lang === "js" ? "Math.sqrt(" + A(0) + ")" : "sqrt(" + A(0) + ")";
+    case "sin": return lang === "python" ? "math.sin(" + A(0) + ")" : lang === "js" ? "Math.sin(" + A(0) + ")" : "sin(" + A(0) + ")";
+    case "cos": return lang === "python" ? "math.cos(" + A(0) + ")" : lang === "js" ? "Math.cos(" + A(0) + ")" : "cos(" + A(0) + ")";
+    case "tan": return lang === "python" ? "math.tan(" + A(0) + ")" : lang === "js" ? "Math.tan(" + A(0) + ")" : "tan(" + A(0) + ")";
+    case "log": return lang === "python" ? "math.log(" + A(0) + ")" : lang === "js" ? "Math.log(" + A(0) + ")" : "log(" + A(0) + ")";
+    case "power": return emit({ t: "bin", op: "^", l: n.args[0], r: n.args[1] }, lang, fn);
+    case "random":
+      return lang === "python" ? "random.randrange(" + A(0) + ")" : lang === "js" ? "Math.floor(Math.random()*" + A(0) + ")" : lang === "c" ? "(rand()%(" + A(0) + "))" : "(int)(Math.random()*" + A(0) + ")";
+    case "min": return lang === "c" ? "_min(" + A(0) + ", " + A(1) + ")" : "min(" + A(0) + ", " + A(1) + ")";
+    case "max": return lang === "c" ? "_max(" + A(0) + ", " + A(1) + ")" : "max(" + A(0) + ", " + A(1) + ")";
+  }
+  // funzioni turtle: fuori dall'interprete non hanno effetto
+  return n.name + "(" + a.join(", ") + ")";
+}
+
+var CTYPE = { Integer: "int", Real: "double", String: "char*", Boolean: "bool", Char: "char" };
+var JTYPE = { Integer: "int", Real: "double", String: "String", Boolean: "boolean", Char: "char" };
+var PYDEF = { Integer: "0", Real: "0.0", String: "''", Boolean: "False", Char: "' '" };
+var JSDEF = { Integer: "0", Real: "0.0", String: "''", Boolean: "false", Char: "' '" };
+
+function genChain(arr, lang, fn, ind, opts) {
+  var out = [];
+  var I = lang === "python" ? "    " : "  ";
+  var pad = new Array(ind + 1).join(I);
+  opts = opts || {};
+  arr.forEach(function (b) {
+    switch (b.type) {
+      case "declare": break; // gestito in testa alla funzione
+      case "comment":
+        out.push(pad + (lang === "python" ? "# " : "// ") + b.text);
+        break;
+      case "assign": {
+        var dst = b.var + (b.index ? "[" + emit(parse(b.index), lang, fn) + "]" : "");
+        var ex = emit(parse(b.expr), lang, fn);
+        var t = typeOfName(b.var, fn);
+        if (lang === "c" && t === "String") {
+          var sexp = parse(b.expr);
+          var sval = inferType(sexp, fn) === "Char" ? "ctos(" + emit(sexp, "c", fn) + ")" : emit(sexp, "c", fn);
+          out.push(pad + "strcpy(" + dst + ", " + sval + ");");
+        }
+        else if (lang === "python") out.push(pad + dst + " = " + ex);
+        else out.push(pad + dst + " = " + ex + ";");
+        break;
+      }
+      case "input": {
+        var t2 = typeOfName(b.var, fn);
+        var dst2 = b.var + (b.index ? "[" + emit(parse(b.index), lang, fn) + "]" : "");
+        var pr = b.prompt ? q(b.prompt) : null;
+        var ref = b.index ? dst2 : ("&" + dst2);
+        if (lang === "python") {
+          var p = pr ? "input(" + pr + ")" : "input()";
+          if (t2 === "Integer") out.push(pad + dst2 + " = int(" + p + ")");
+          else if (t2 === "Real") out.push(pad + dst2 + " = float(" + p + ")");
+          else if (t2 === "Boolean") out.push(pad + dst2 + " = _pb(" + p + ")");
+          else if (t2 === "Char") out.push(pad + dst2 + " = (" + p + " or ' ')[0]");
+          else out.push(pad + dst2 + " = " + p);
+        } else if (lang === "js") {
+          var p2 = pr ? "prompt(" + pr + ")" : "prompt('')";
+          if (t2 === "Integer") out.push(pad + dst2 + " = parseInt(" + p2 + ", 10)");
+          else if (t2 === "Real") out.push(pad + dst2 + " = parseFloat(" + p2 + ")");
+          else if (t2 === "Boolean") out.push(pad + dst2 + " = _pb(" + p2 + ")");
+          else if (t2 === "Char") out.push(pad + dst2 + " = (" + p2 + " || ' ')[0]");
+          else out.push(pad + dst2 + " = " + p2);
+        } else if (lang === "c") {
+          if (pr) out.push(pad + "printf(" + pr + ");");
+          if (t2 === "Integer") out.push(pad + 'scanf("%d", ' + ref + ");");
+          else if (t2 === "Real") out.push(pad + 'scanf("%lf", ' + ref + ");");
+          else if (t2 === "String") out.push(pad + 'scanf("%255s", ' + dst2 + ");");
+          else if (t2 === "Boolean") out.push(pad + dst2 + " = read_bool();");
+          else if (t2 === "Char") out.push(pad + 'scanf(" %c", ' + ref + ");");
+        } else { // java
+          if (pr) out.push(pad + "System.out.print(" + pr + ");");
+          if (t2 === "Integer") out.push(pad + dst2 + " = _sc.nextInt();");
+          else if (t2 === "Real") out.push(pad + dst2 + " = _sc.nextDouble();");
+          else if (t2 === "String") out.push(pad + dst2 + " = _sc.next();");
+          else if (t2 === "Boolean") out.push(pad + dst2 + " = _jb(_sc.next());");
+          else if (t2 === "Char") out.push(pad + dst2 + " = _jc(_sc.next());");
+        }
+        break;
+      }
+      case "output": {
+        var ex2 = parse(b.expr);
+        var e2 = emit(ex2, lang, fn);
+        var nl = b.nl !== false;
+        if (lang === "python") out.push(pad + "print(_fmt(" + e2 + ")" + (nl ? "" : ', end=""') + ")");
+        else if (lang === "js") out.push(pad + (nl ? "console.log(_fmt(" : "process.stdout.write(_fmt(") + e2 + "));");
+        else if (lang === "c") {
+          var t3 = inferType(ex2, fn) || "Real";
+          var fmtc = { Integer: "%d\\n", Real: "%g\\n", String: "%s\\n", Boolean: "%s\\n", Char: "%c\\n", Unknown: "%g\\n" }[t3];
+          if (!nl) fmtc = fmtc.replace("\\n", "");
+          if (t3 === "Integer") out.push(pad + 'printf("' + fmtc + '", (int)(' + e2 + "));");
+          else if (t3 === "Real" || t3 === "Unknown") out.push(pad + 'printf("' + fmtc + '", (double)(' + e2 + "));");
+          else if (t3 === "Boolean") out.push(pad + 'printf("' + fmtc + '", (' + e2 + ') ? "true" : "false");');
+          else out.push(pad + 'printf("' + fmtc + '", ' + e2 + ");");
+        } else out.push(pad + "System.out." + (nl ? "println" : "print") + "(_fmt(" + e2 + "));");
+        break;
+      }
+      case "if": {
+        var c = emit(parse(b.cond), lang, fn);
+        if (lang === "python") {
+          out.push(pad + "if " + c + ":");
+          out.push.apply(out, genChain(b.then, lang, fn, ind + 1));
+          if (b.else.length) {
+            out.push(pad + "else:");
+            out.push.apply(out, genChain(b.else, lang, fn, ind + 1));
+          }
+        } else {
+          out.push(pad + "if (" + c + ") {");
+          out.push.apply(out, genChain(b.then, lang, fn, ind + 1));
+          if (b.else.length) {
+            out.push(pad + "} else {");
+            out.push.apply(out, genChain(b.else, lang, fn, ind + 1));
+          }
+          out.push(pad + "}");
+        }
+        break;
+      }
+      case "while": {
+        var c2 = emit(parse(b.cond), lang, fn);
+        if (lang === "python") {
+          out.push(pad + "while " + c2 + ":");
+          out.push.apply(out, genChain(b.body, lang, fn, ind + 1));
+        } else {
+          out.push(pad + "while (" + c2 + ") {");
+          out.push.apply(out, genChain(b.body, lang, fn, ind + 1));
+          out.push(pad + "}");
+        }
+        break;
+      }
+      case "for": {
+        var fE = emit(parse(b.from), lang, fn), tE = emit(parse(b.to), lang, fn);
+        var sE = emit(parse(b.step || "1"), lang, fn);
+        var down = b.dir === "down";
+        if (lang === "python") {
+          out.push(pad + "for " + b.var + " in range(" + fE + ", " + tE + (down ? " - 1" : " + 1") + ", " + (down ? "-" + sE : sE) + "):");
+          out.push.apply(out, genChain(b.body, lang, fn, ind + 1));
+        } else {
+          out.push(pad + "for (" + b.var + " = " + fE + "; " + b.var + (down ? " >= " : " <= ") + tE + "; " + b.var + (down ? " -= " : " += ") + sE + ") {");
+          out.push.apply(out, genChain(b.body, lang, fn, ind + 1));
+          out.push(pad + "}");
+        }
+        break;
+      }
+      case "do": {
+        if (lang === "python") {
+          out.push(pad + "while True:");
+          out.push.apply(out, genChain(b.body, lang, fn, ind + 1));
+          var cd = emit(parse(b.cond), lang, fn);
+          out.push(new Array(ind + 2).join("    ") + "if not (" + cd + "):");
+          out.push(new Array(ind + 3).join("    ") + "break");
+        } else {
+          out.push(pad + "do {");
+          out.push.apply(out, genChain(b.body, lang, fn, ind + 1));
+          out.push(pad + "} while (" + emit(parse(b.cond), lang, fn) + ");");
+        }
+        break;
+      }
+      case "call": {
+        var uf = findFnByName(b.fn);
+        var args = (b.args || []).map(function (x) { return emit(parse(x), lang, fn); }).join(", ");
+        var nm2 = b.fn;
+        if (lang === "java" && uf && uf.name === "Main") nm2 = "Main_";
+        if (lang === "c" && uf && uf.name === "Main") nm2 = "main";
+        out.push(pad + nm2 + "(" + args + ")" + (lang === "python" ? "" : ";"));
+        break;
+      }
+      case "return": {
+        if (b.expr) {
+          var rv = emit(parse(b.expr), lang, fn);
+          if (lang === "python") out.push(pad + "return " + rv);
+          else if (lang === "c" && opts.isMain) out.push(pad + "return 0;");
+          else out.push(pad + "return " + rv + ";");
+        } else {
+          if (lang === "python") out.push(pad + "return");
+          else if (lang === "c" && opts.isMain) out.push(pad + "return 0;");
+          else out.push(pad + "return;");
+        }
+        break;
+      }
+    }
+  });
+  return out;
+}
+
+function declaresOf(fn) {
+  var out = [];
+  walkChain(fn.body, function (b) {
+    if (b.type === "declare") b.vars.forEach(function (v) { out.push(v); });
+  });
+  return out;
+}
+
+function genFunction(lang, fn) {
+  var lines = [];
+  var vars = declaresOf(fn);
+  var I = lang === "python" ? "    " : "  ";
+  if (lang === "python") {
+    lines.push("def " + (fn.name === "Main" ? "main" : fn.name) + "(" + (fn.params || []).map(function (p) { return p.name; }).join(", ") + "):");
+    vars.forEach(function (v) {
+      if (v.arr) lines.push(I + v.name + " = [" + PYDEF[v.type].replace(/'/g, '"') + "] * " + emit(parse(v.size), "python", fn));
+      else lines.push(I + v.name + " = " + PYDEF[v.type]);
+    });
+    if (!vars.length) lines.push(I + "pass");
+    lines.push.apply(lines, genChain(fn.body, "python", fn, 1));
+  } else if (lang === "js") {
+    lines.push("function " + (fn.name === "Main" ? "main" : fn.name) + "(" + (fn.params || []).map(function (p) { return p.name; }).join(", ") + ") {");
+    var names = (fn.params || []).map(function (p) { return p.name; });
+    vars.forEach(function (v) { if (names.indexOf(v.name) < 0) names.push(v.name); });
+    vars.forEach(function (v) {
+      if (v.arr) lines.push(I + "var " + v.name + " = new Array(" + emit(parse(v.size), "js", fn) + ").fill(" + JSDEF[v.type] + ");");
+    });
+    if (names.length) lines.push(I + "var " + names.filter(function (nm3, ix) { return vars.some(function (v) { return v.name === nm3; }); }).join(", ") + ";");
+    lines.push.apply(lines, genChain(fn.body, "js", fn, 1));
+    lines.push("}");
+  } else if (lang === "c") {
+    var rt = fn.name === "Main" ? "int" : (fn.ret ? CTYPE[fn.ret] : "void");
+    var ps = (fn.params || []).map(function (p) { return CTYPE[p.type] + " " + p.name; }).join(", ");
+    var nm = fn.name === "Main" ? "main" : fn.name;
+    lines.push(rt + " " + nm + "(" + (ps || (fn.name === "Main" ? "void" : "void")) + ") {");
+    var byType = {};
+    vars.forEach(function (v) { (byType[v.type] = byType[v.type] || []).push(v); });
+    Object.keys(byType).forEach(function (t) {
+      var scal = byType[t].filter(function (v) { return !v.arr; });
+      var arrs = byType[t].filter(function (v) { return v.arr; });
+      if (scal.length) lines.push(I + CTYPE[t] + " " + scal.map(function (v) { return v.name + (t === "String" ? "[256]" : ""); }).join(", ") + ";");
+      arrs.forEach(function (v) {
+        var size = constEval(v.size) || 100;
+        if (t === "String") lines.push(I + "char " + v.name + "[" + size + "][256];");
+        else lines.push(I + CTYPE[t] + " " + v.name + "[" + size + "];");
+      });
+    });
+    lines.push.apply(lines, genChain(fn.body, "c", fn, 1, { isMain: fn.name === "Main" }));
+    if (fn.name === "Main") lines.push(I + "return 0;");
+    lines.push("}");
+  } else { // java
+    var rt2 = fn.ret ? JTYPE[fn.ret] : "void";
+    var ps2 = (fn.params || []).map(function (p) { return JTYPE[p.type] + " " + p.name; }).join(", ");
+    var nm2 = fn.name === "Main" ? "main" : fn.name;
+    lines.push("    static " + rt2 + " " + nm2 + "(" + (fn.name === "Main" ? "String[] args" : ps2) + ") {");
+    vars.forEach(function (v) {
+      if (v.arr) lines.push("        " + JTYPE[v.type] + "[] " + v.name + " = new " + JTYPE[v.type] + "[" + emit(parse(v.size), "java", fn) + "];");
+      else if (v.type !== "String") lines.push("        " + JTYPE[v.type] + " " + v.name + " = " + { Integer: "0", Real: "0.0", Boolean: "false", Char: "' '" }[v.type] + ";");
+      else lines.push("        String " + v.name + ' = "";');
+    });
+    lines.push.apply(lines, genChain(fn.body, "java", fn, 2).map(function (s) { return "    " + s; }));
+    lines.push("    }");
+  }
+  return lines;
+}
+
+function genProgram(lang) {
+  var out = [];
+  var mains = fns()[0];
+  var rest = fns().slice(1);
+  if (lang === "python") {
+    out.push("# Generato con FlowWeb (flowchart -> Python)");
+    out.push("import math, random");
+    out.push("");
+    out.push("def _fmt(x):");
+    out.push("    if isinstance(x, bool):");
+    out.push('        return "true" if x else "false"');
+    out.push("    return str(x)");
+    out.push("");
+    out.push("def _tdiv(a, b):");
+    out.push("    return int(a / b)");
+    out.push("");
+    out.push('def _pb(s):');
+    out.push('    return s.strip().lower() in ("true", "vero", "1", "si", "s\u00ec", "yes", "y")');
+    out.push("");
+    rest.forEach(function (f) { out.push.apply(out, genFunction("python", f)); out.push(""); });
+    out.push.apply(out, genFunction("python", mains));
+    out.push("");
+    out.push('if __name__ == "__main__":');
+    out.push("    main()");
+  } else if (lang === "js") {
+    out.push("// Generato con FlowWeb (flowchart -> JavaScript)");
+    out.push("function _fmt(x) {");
+    out.push("    if (typeof x === \"boolean\") return x ? \"true\" : \"false\";");
+    out.push("    if (typeof x === \"number\" && !Number.isInteger(x)) {");
+    out.push("        let s = x.toPrecision(10);");
+    out.push("        if (s.indexOf(\".\") >= 0) s = s.replace(/0+$/, \"\").replace(/\\.$/, \"\");");
+    out.push("        return s;");
+    out.push("    }");
+    out.push("    return String(x);");
+    out.push("}");
+    out.push('function _pb(s) { return ["true", "vero", "1", "si", "s\u00ec", "yes", "y"].includes(s.trim().toLowerCase()); }');
+    out.push("");
+    rest.forEach(function (f) { out.push.apply(out, genFunction("js", f)); out.push(""); });
+    out.push.apply(out, genFunction("js", mains));
+    out.push("");
+    out.push("main();");
+  } else if (lang === "c") {
+    out.push("/* Generato con FlowWeb (flowchart -> C) */");
+    out.push("#include <stdio.h>");
+    out.push("#include <stdlib.h>");
+    out.push("#include <string.h>");
+    out.push("#include <math.h>");
+    out.push("#include <stdbool.h>");
+    out.push("#include <time.h>");
+    out.push("");
+    out.push("static char* concat(const char* a, const char* b) { char* r = malloc(strlen(a)+strlen(b)+1); strcpy(r, a); strcat(r, b); return r; }");
+    out.push("static char* str_int(int v) { char* r = malloc(32); sprintf(r, \"%d\", v); return r; }");
+    out.push("static char* str_real(double v) { char* r = malloc(32); sprintf(r, \"%g\", v); return r; }");
+    out.push("static char* str_bool(bool v) { char* r = malloc(6); strcpy(r, v ? \"true\" : \"false\"); return r; }");
+    out.push("static char* str_char(char v) { char* r = malloc(2); r[0] = v; r[1] = 0; return r; }");
+    out.push("static char* ctos(char v) { char* r = malloc(2); r[0] = v; r[1] = 0; return r; }");
+    out.push("static bool read_bool() { int t; scanf(\"%d\", &t); return t != 0; }");
+    out.push("static double _min(double a, double b) { return a < b ? a : b; }");
+    out.push("static double _max(double a, double b) { return a > b ? a : b; }");
+    out.push("");
+    rest.forEach(function (f) {
+      var rt = f.ret ? CTYPE[f.ret] : "void";
+      var ps = (f.params || []).map(function (p) { return CTYPE[p.type] + " " + p.name; }).join(", ");
+      out.push(rt + " " + f.name + "(" + ps + ");");
+    });
+    out.push("");
+    rest.forEach(function (f) { out.push.apply(out, genFunction("c", f)); out.push(""); });
+    out.push.apply(out, genFunction("c", mains));
+  } else { // java
+    out.push("// Generato con FlowWeb (flowchart -> Java)");
+    out.push("import java.util.Scanner;");
+    out.push("");
+    out.push("public class Program {");
+    out.push("    static Scanner _sc = new Scanner(System.in);");
+    out.push("");
+    out.push("    static String _fmt(Object x) {");
+    out.push("        if (x instanceof Boolean) return ((Boolean) x) ? \"true\" : \"false\";");
+    out.push("        if (x instanceof Double) {");
+    out.push("            double d = (Double) x;");
+    out.push("            if (d == Math.floor(d) && !Double.isInfinite(d)) return String.valueOf((long) d);");
+    out.push("            return String.valueOf(d);");
+    out.push("        }");
+    out.push("        return String.valueOf(x);");
+    out.push("    }");
+    out.push('    static boolean _jb(String s) { String w = s.trim().toLowerCase(); return "true".equals(w) || "vero".equals(w) || "1".equals(w) || "si".equals(w) || "s\u00ec".equals(w) || "yes".equals(w) || "y".equals(w); }');
+    out.push('    static char _jc(String s) { return (s + " ").charAt(0); }');
+    out.push("");
+    rest.forEach(function (f) { out.push.apply(out, genFunction("java", f)); out.push(""); });
+    out.push.apply(out, genFunction("java", mains));
+    out.push("}");
+  }
+  return out.join("\n");
+}
+
+/* ============================================================== UI: base */
+function setStatus(msg, isErr) {
+  var el = document.getElementById("status-left");
+  el.textContent = msg;
+  document.getElementById("statusbar").classList.toggle("err", !!isErr);
+}
+function updateStatusRight() {
+  var n = 0;
+  walkChain(currentFn().body, function () { n++; });
+  document.getElementById("status-right").textContent =
+    "Funzione: " + currentFn().name + "  \u2022  Blocchi: " + n + "  \u2022  Zoom: " + Math.round(Z * 100) + "%";
+}
+function consoleAppend(text, cls) {
+  var c = document.getElementById("console");
+  var span = document.createElement("span");
+  if (cls) span.className = cls;
+  span.textContent = text;
+  c.appendChild(span);
+  c.scrollTop = c.scrollHeight;
+}
+function consoleClear() {
+  document.getElementById("console").textContent = "";
+}
+function showTurtleTab() {
+  document.querySelectorAll(".btab").forEach(function (t) {
+    t.classList.toggle("active", t.dataset.p === "turtle");
+  });
+  document.querySelectorAll(".bpanel").forEach(function (p) {
+    p.classList.toggle("active", p.id === "panel-turtle");
+  });
+}
+
+/* ---- tabs funzioni ---- */
+function updateTabs() {
+  var host = document.getElementById("fntabs");
+  host.innerHTML = "";
+  fns().forEach(function (f) {
+    var t = document.createElement("div");
+    t.className = "fntab" + (f.id === currentFn().id ? " active" : "");
+    t.textContent = f.name;
+    t.onclick = function () { if (RT.state !== "running") { curFnId = f.id; render(); } };
+    t.oncontextmenu = function (e) {
+      e.preventDefault();
+      showCtxMenu(e.clientX, e.clientY, [
+        { label: "Modifica firma", action: function () { openFunctionModal(f); } },
+        { label: "Elimina funzione", disabled: f.name === "Main", action: function () { deleteFunction(f); } }
+      ]);
+    };
+    host.appendChild(t);
+  });
+  var add = document.createElement("div");
+  add.className = "fntab add";
+  add.textContent = "+";
+  add.title = "Nuova funzione";
+  add.onclick = function () { openFunctionModal(null); };
+  host.appendChild(add);
+}
+
+function deleteFunction(f) {
+  var i = fns().indexOf(f);
+  if (i < 0) return;
+  openConfirm("Eliminare la funzione '" + f.name + "'?", function () {
+    fns().splice(i, 1);
+    if (curFnId === f.id) curFnId = fns()[0].id;
+    commit();
+  });
+}
+
+function commit() {
+  render();
+  saveLocal();
+}
+
+/* ---- drag & drop ---- */
+var DRAG_TYPE = null;
+function setupDnD() {
+  var svg = document.getElementById("svg");
+  svg.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    if (!DRAG_TYPE) return;
+    svg.classList.add("dragging");
+    var z = zoneAt(svgPoint(e));
+    DRAW.zones.forEach(function (zz) { zz.el.classList.toggle("hot", zz === z); });
+  });
+  svg.addEventListener("drop", function (e) {
+    e.preventDefault();
+    svg.classList.remove("dragging");
+    var t = DRAG_TYPE || e.dataTransfer.getData("text/blocktype");
+    var z = zoneAt(svgPoint(e));
+    if (t && z) {
+      var b = newBlock(t);
+      z.arr.splice(z.index, 0, b);
+      commit();
+      openBlockModal(b, true);
+    }
+    DRAG_TYPE = null;
+  });
+  svg.addEventListener("dragleave", function () { /* zone evidenziate gestite in dragover */ });
+
+  document.addEventListener("dragend", function () {
+    document.getElementById("svg").classList.remove("dragging");
+    DRAG_TYPE = null;
+  });
+}
+
+/* ---- context menu / click su blocchi ---- */
+function showCtxMenu(x, y, items) {
+  var old = document.getElementById("ctxmenu"); if (old) old.remove();
+  var m = document.createElement("div");
+  m.id = "ctxmenu";
+  items.forEach(function (it) {
+    if (it.sep) { var s = document.createElement("div"); s.className = "sep"; m.appendChild(s); return; }
+    var d = document.createElement("div");
+    d.className = "di" + (it.disabled ? " disabled" : "");
+    d.textContent = it.label;
+    if (!it.disabled) d.onclick = function () { m.remove(); it.action(); };
+    m.appendChild(d);
+  });
+  document.body.appendChild(m);
+  m.style.left = Math.min(x, window.innerWidth - 200) + "px";
+  m.style.top = Math.min(y, window.innerHeight - 30 - items.length * 26) + "px";
+  setTimeout(function () {
+    document.addEventListener("mousedown", function h(e) {
+      if (!m.contains(e.target)) { m.remove(); document.removeEventListener("mousedown", h); }
+    });
+  }, 0);
+}
+
+function setupSvgEvents() {
+  var svg = document.getElementById("svg");
+  svg.addEventListener("dblclick", function (e) {
+    var g = e.target.closest(".blk");
+    if (!g) return;
+    if (g.dataset.id === "__fn__") { openFunctionModal(currentFn()); return; }
+    var ref = findBlock(g.dataset.id);
+    if (ref) openBlockModal(ref.block, false);
+  });
+  svg.addEventListener("contextmenu", function (e) {
+    var g = e.target.closest(".blk");
+    if (!g) return;
+    e.preventDefault();
+    if (g.dataset.id === "__fn__") return;
+    var ref = findBlock(g.dataset.id);
+    if (!ref) return;
+    showCtxMenu(e.clientX, e.clientY, [
+      { label: "Modifica", action: function () { openBlockModal(ref.block, false); } },
+      { label: "Duplica", action: function () { ref.arr.splice(ref.index + 1, 0, cloneBlock(ref.block)); commit(); } },
+      { sep: true },
+      { label: "Elimina", action: function () { ref.arr.splice(ref.index, 1); commit(); } }
+    ]);
+  });
+}
+
+/* ---- palette ---- */
+var PAL = [
+  { type: "declare", label: "Dichiarazione", icon: '<rect x="4" y="7" width="56" height="18" rx="4" fill="#009688"/>' },
+  { type: "assign", label: "Assegnazione", icon: '<rect x="4" y="7" width="56" height="18" rx="4" fill="#1e40af"/>' },
+  { type: "input", label: "Input", icon: '<path d="M12 7 L64 7 L56 25 L4 25 Z" fill="#0b8a3a"/>' },
+  { type: "output", label: "Output", icon: '<path d="M12 7 L64 7 L56 25 L4 25 Z" fill="#4632b8"/>' },
+  { type: "if", label: "If / Else", icon: '<path d="M4 16 L18 7 L50 7 L64 16 L50 25 L18 25 Z" fill="#e87722"/>' },
+  { type: "while", label: "While", icon: '<rect x="4" y="8" width="48" height="16" rx="8" fill="#bf8f00"/><path d="M52 12 q12 0 12 8" stroke="#bf8f00" stroke-width="3" fill="none"/><path d="M64 20 l-5 -6 M64 20 l2 -8" stroke="#bf8f00" stroke-width="2" fill="none"/>' },
+  { type: "for", label: "For", icon: '<rect x="4" y="8" width="48" height="16" rx="8" fill="#bf8f00"/><circle cx="12" cy="16" r="6" fill="none" stroke="#fff" stroke-width="2"/><path d="M12 11 l0 5 l4 2" stroke="#fff" stroke-width="1.6" fill="none"/>' },
+  { type: "do", label: "Do", icon: '<rect x="4" y="8" width="48" height="16" rx="8" fill="#bf8f00"/><path d="M8 26 q28 4 44 -6" stroke="#bf8f00" stroke-width="2.5" fill="none" stroke-dasharray="4 3"/>' },
+  { type: "call", label: "Call", icon: '<rect x="4" y="7" width="56" height="18" rx="9" fill="#7b1fa2"/>' },
+  { type: "return", label: "Return", icon: '<rect x="4" y="7" width="56" height="18" rx="4" fill="#c62828"/>' },
+  { type: "comment", label: "Commento", icon: '<rect x="4" y="7" width="56" height="18" rx="4" fill="#fcfcfc" stroke="#aaa" stroke-dasharray="4 3"/><line x1="10" y1="16" x2="54" y2="16" stroke="#999"/>' }
+];
+function buildPalette() {
+  var host = document.getElementById("palette");
+  host.innerHTML = "<h3>Blocchi \u2014 trascina sul diagramma</h3>";
+  PAL.forEach(function (p) {
+    var d = document.createElement("div");
+    d.className = "pal-item";
+    d.draggable = true;
+    d.innerHTML = '<svg viewBox="0 0 68 32">' + p.icon + "</svg><span>" + p.label + "</span>";
+    d.addEventListener("dragstart", function (e) {
+      DRAG_TYPE = p.type;
+      e.dataTransfer.setData("text/blocktype", p.type);
+      e.dataTransfer.effectAllowed = "copy";
+    });
+    host.appendChild(d);
+  });
+}
+
+/* ---- toolbar ---- */
+var TB = {};
+function buildToolbar() {
+  var host = document.getElementById("toolbar");
+  host.innerHTML = "";
+  function btn(id, title, svg, label, onclick) {
+    var b = document.createElement("button");
+    b.className = "tbtn"; b.id = "tb-" + id; b.title = title;
+    b.innerHTML = svg + (label ? "<span>" + label + "</span>" : "");
+    b.onclick = onclick;
+    host.appendChild(b);
+    TB[id] = b;
+    return b;
+  }
+  function sep() { var s = document.createElement("div"); s.className = "tsep"; host.appendChild(s); }
+
+  btn("new", "Nuovo programma", ICONS.new, "Nuovo", function () { doNew(); });
+  btn("open", "Apri file .json", ICONS.open, "Apri", function () { doOpen(); });
+  btn("save", "Salva file .json", ICONS.save, "Salva", function () { doSave(); });
+  sep();
+  btn("run", "Esegui (F5)", ICONS.run, "Esegui", function () { doRunBtn(); });
+  btn("pause", "Pausa / Riprendi", ICONS.pause, "Pausa", function () { doPauseBtn(); });
+  btn("step", "Passo (F10)", ICONS.step, "Passo", function () { doStepBtn(); });
+  btn("stop", "Stop", ICONS.stop, "Stop", function () { doStopBtn(); });
+  sep();
+  var sw = document.createElement("div");
+  sw.id = "speed-wrap";
+  sw.innerHTML = '<label>Velocit\u00e0</label><input id="speed" type="range" min="0" max="2000" step="50" value="350"><span id="speed-val">350ms</span>';
+  host.appendChild(sw);
+  sw.querySelector("#speed").addEventListener("input", function () {
+    RT.speed = +this.value;
+    document.getElementById("speed-val").textContent = this.value === "0" ? "max" : this.value + "ms";
+  });
+  sep();
+  var zw = document.createElement("div");
+  zw.id = "zoom-wrap";
+  zw.innerHTML = '<button class="btn zbtn" id="zoom-out" title="Riduci">\u2212</button><span id="zoom-val">100%</span><button class="btn zbtn" id="zoom-in" title="Ingrandisci">+</button>';
+  host.appendChild(zw);
+  zw.querySelector("#zoom-out").onclick = function () { Z = clamp(Z - 0.1, 0.5, 1.6); applyZoom(); updateStatusRight(); };
+  zw.querySelector("#zoom-in").onclick = function () { Z = clamp(Z + 0.1, 0.5, 1.6); applyZoom(); updateStatusRight(); };
+  sep();
+  btn("code", "Esporta codice", ICONS.code, "Codice", function () { openExportModal(); });
+  btn("png", "Esporta diagramma PNG", ICONS.png, "PNG", function () { exportPNG(); });
+  setRunUI();
+}
+function setRunUI() {
+  var running = RT.state === "running";
+  TB.run && (TB.run.disabled = running);
+  TB.pause && (TB.pause.disabled = !running);
+  TB.step && (TB.step.disabled = false);
+  TB.stop && (TB.stop.disabled = !running);
+}
+function doRunBtn() {
+  if (RT.state === "running") { RT.resume(); setStatus("In esecuzione."); }
+  else startRun("run");
+}
+function doPauseBtn() {
+  if (RT.state !== "running") return;
+  if (RT.paused) { RT.resume(); setStatus("In esecuzione."); }
+  else { RT.pause(); setStatus("In pausa."); }
+}
+function doStepBtn() {
+  if (RT.state === "idle") startRun("step");
+  else RT.doStep();
+}
+function doStopBtn() {
+  if (RT.state === "running") RT.stop();
+}
+
+var ICONS = {
+  new: '<svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v15H6z" fill="#fff" stroke="#7a7a7a"/><path d="M14 2v5h5" fill="none" stroke="#7a7a7a"/><path d="M9 13h7M9 16h7" stroke="#0078d4"/></svg>',
+  open: '<svg viewBox="0 0 24 24"><path d="M2 6h7l2 2h11v11H2z" fill="#f6c445" stroke="#a07d1e"/><path d="M4 10h16" stroke="#fff"/></svg>',
+  save: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="#2d6fd2" stroke="#1a4a9e"/><rect x="7" y="3" width="10" height="8" fill="#fff"/><path d="M9 4h2v5H9z" fill="#2d6fd2"/><rect x="6" y="13" width="12" height="7" fill="#fff"/></svg>',
+  run: '<svg viewBox="0 0 24 24"><path d="M6 3l15 9-15 9z" fill="#1e9e34"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" fill="#e08a00"/><rect x="14" y="4" width="5" height="16" fill="#e08a00"/></svg>',
+  step: '<svg viewBox="0 0 24 24"><path d="M3 4l11 8-11 8z" fill="#2d6fd2"/><rect x="16" y="4" width="4" height="16" fill="#2d6fd2"/></svg>',
+  stop: '<svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" fill="#c62828"/></svg>',
+  code: '<svg viewBox="0 0 24 24"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6" fill="none" stroke="#555" stroke-width="2.4"/></svg>',
+  png: '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" fill="#fff" stroke="#7a7a7a"/><path d="M4 17l5-6 4 4 3-3 4 5z" fill="#1e9e34"/><circle cx="8" cy="8" r="2" fill="#f6c445"/></svg>'
+};
+
+/* ---- menu ---- */
+var MENUS = [
+  { label: "File", items: [
+    { label: "Nuovo programma", action: function () { doNew(); } },
+    { label: "Apri file\u2026", action: function () { doOpen(); } },
+    { label: "Salva su file\u2026", action: function () { doSave(); } },
+    { sep: true },
+    { label: "Esporta diagramma (PNG)\u2026", action: function () { exportPNG(); } },
+    { label: "Esporta codice\u2026", action: function () { openExportModal(); } },
+    { sep: true },
+    { label: "Esempi \u25b8", action: function (ev, anchor) { showExampleMenu(anchor); } }
+  ]},
+  { label: "Programma", items: [
+    { label: "Nuova funzione\u2026", action: function () { openFunctionModal(null); } },
+    { label: "Modifica funzione corrente\u2026", action: function () { openFunctionModal(currentFn()); } }
+  ]},
+  { label: "Esegui", items: [
+    { label: "Esegui  (F5)", action: function () { doRunBtn(); } },
+    { label: "Pausa / Riprendi", action: function () { doPauseBtn(); } },
+    { label: "Passo  (F10)", action: function () { doStepBtn(); } },
+    { label: "Stop", action: function () { doStopBtn(); } }
+  ]},
+  { label: "Aiuto", items: [
+    { label: "Guida rapida", action: function () { openHelpModal(); } },
+    { label: "Informazioni su FlowWeb", action: function () { openAboutModal(); } }
+  ]}
+];
+function buildMenubar() {
+  var bar = document.getElementById("menubar");
+  bar.innerHTML = "";
+  MENUS.forEach(function (m) {
+    var it = document.createElement("div");
+    it.className = "menu-item";
+    it.textContent = m.label;
+    var dd = null;
+    function open() {
+    closeAllMenus();
+      it.classList.add("open");
+      dd = document.createElement("div");
+      dd.className = "dropdown";
+      m.items.forEach(function (mi) {
+        if (mi.sep) { var s = document.createElement("div"); s.className = "sep"; dd.appendChild(s); return; }
+        var d = document.createElement("div");
+        d.className = "di" + (mi.disabled ? " disabled" : "");
+        d.textContent = mi.label;
+        d.onclick = function (e) { closeAllMenus(); mi.action(e, it); };
+        dd.appendChild(d);
+      });
+      it.appendChild(dd);
+    }
+    it.onclick = function () {
+      if (it.classList.contains("open")) closeAllMenus();
+      else open();
+    };
+    it.onmouseenter = function () {
+      if (document.querySelector(".menu-item.open") && !it.classList.contains("open")) open();
+    };
+    bar.appendChild(it);
+  });
+  function closeAllMenus() {
+    document.querySelectorAll(".menu-item.open").forEach(function (x) { x.classList.remove("open"); var d = x.querySelector(".dropdown"); if (d) d.remove(); });
+  }
+}
+function showExampleMenu(anchor) {
+  var r = anchor.getBoundingClientRect();
+  showCtxMenu(r.left, r.bottom, EXAMPLES.map(function (ex) {
+    return { label: ex.name, action: function () {
+      openConfirm("Caricare l'esempio '" + ex.name + "'? Il programma attuale verr\u00e0 sostituito.", function () {
+        PROGRAM = ex.make();
+        curFnId = PROGRAM.functions[0].id;
+        commit();
+        setStatus("Esempio caricato: " + ex.name);
+      });
+    } };
+  }));
+}
+
+/* ---- file ops ---- */
+function doNew() {
+  openConfirm("Creare un nuovo programma vuoto? Le modifiche non salvate andranno perse.", function () {
+    PROGRAM = newProgram();
+    curFnId = PROGRAM.functions[0].id;
+    commit();
+    consoleClear();
+    setStatus("Nuovo programma.");
+  });
+}
+function doSave() {
+  download(promptFileName(), JSON.stringify(PROGRAM, null, 2), "application/json");
+}
+function promptFileName() {
+  return (currentFn() && fns()[0] ? fns()[0].name : "programma").replace(/\W+/g, "_") + ".flowweb.json";
+}
+function doOpen() {
+  var inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = ".json,application/json";
+  inp.onchange = function () {
+    var f = inp.files[0];
+    if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function () {
+      try {
+        var p = JSON.parse(fr.result);
+        if (!p || !p.functions || !p.functions.length) throw new Error("formato non valido");
+        PROGRAM = p;
+        curFnId = PROGRAM.functions[0].id;
+        commit();
+        setStatus("Programma caricato: " + f.name);
+      } catch (e) {
+        openAlert("File non valido: " + e.message);
+      }
+    };
+    fr.readAsText(f);
+  };
+  inp.click();
+}
+function saveLocal() {
+  try { localStorage.setItem("flowweb.autosave", JSON.stringify(PROGRAM)); } catch (e) {}
+}
+function loadLocal() {
+  try {
+    var s = localStorage.getItem("flowweb.autosave");
+    if (s) {
+      var p = JSON.parse(s);
+      if (p && p.functions && p.functions.length) { PROGRAM = p; curFnId = PROGRAM.functions[0].id; return true; }
+    }
+  } catch (e) {}
+  return false;
+}
+
+function exportPNG() {
+  var svg = document.getElementById("svg");
+  var clone = svg.cloneNode(true);
+  clone.querySelectorAll(".dz").forEach(function (x) { x.remove(); });
+  clone.querySelectorAll(".blk.current, .blk.err").forEach(function (x) { x.classList.remove("current"); x.classList.remove("err"); });
+  clone.setAttribute("xmlns", NS);
+  var w = DRAW.maxX - DRAW.minX, h = DRAW.maxY - DRAW.minY;
+  clone.setAttribute("width", w); clone.setAttribute("height", h);
+  var data = new XMLSerializer().serializeToString(clone);
+  var img = new Image();
+  img.onload = function () {
+    var c = document.createElement("canvas");
+    c.width = w * 2; c.height = h * 2;
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    var a = document.createElement("a");
+    a.href = c.toDataURL("image/png");
+    a.download = (fns()[0].name || "diagramma") + ".png";
+    a.click();
+  };
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(data);
+}
+
+/* ---- modal framework ---- */
+function modalOpen(title, buildBody, footBtns) {
+  var root = document.getElementById("modal-root");
+  var ov = document.createElement("div");
+  ov.className = "overlay";
+  var dlg = document.createElement("div");
+  dlg.className = "dialog";
+  dlg.innerHTML = '<div class="dialog-title"><span>' + esc(title) + '</span><span class="x">\u2715</span></div>';
+  var body = document.createElement("div");
+  body.className = "dialog-body";
+  dlg.appendChild(body);
+  var foot = document.createElement("div");
+  foot.className = "dialog-foot";
+  var errEl = document.createElement("span");
+  errEl.className = "modalerr";
+  foot.appendChild(errEl);
+  footBtns.forEach(function (b) {
+    var btn = document.createElement("button");
+    btn.className = "btn" + (b.primary ? " primary" : "");
+    btn.textContent = b.label;
+    btn.onclick = function () { b.action(body, errEl, close, dlg); };
+    foot.appendChild(btn);
+  });
+  dlg.appendChild(foot);
+  ov.appendChild(dlg);
+  root.appendChild(ov);
+  function close() { ov.remove(); }
+  dlg.querySelector(".x").onclick = close;
+  buildBody(body, close, dlg);
+  return close;
+}
+function openAlert(msg) {
+  modalOpen("FlowWeb", function (body) {
+    var p = document.createElement("p");
+    p.textContent = msg;
+    body.appendChild(p);
+  }, [{ label: "OK", primary: true, action: function (b, e, close) { close(); } }]);
+}
+function openConfirm(msg, onOk) {
+  modalOpen("Conferma", function (body) {
+    var p = document.createElement("p");
+    p.textContent = msg;
+    body.appendChild(p);
+  }, [
+    { label: "Annulla", action: function (b, e, close) { close(); } },
+    { label: "OK", primary: true, action: function (b, e, close) { close(); onOk(); } }
+  ]);
+}
+
+/* ---- input dialog durante l'esecuzione ---- */
+function askInputModal(b, typeName, varName) {
+  return new Promise(function (resolve) {
+    var done = false;
+    function finish(v) { if (!done) { done = true; close(); resolve(v); } }
+    var close = modalOpen("Input \u2014 " + varName, function (body, closeRef) {
+      var prompt = (b && b.prompt) ? b.prompt : ("Inserisci un valore per " + varName + " (" + typeName + ")");
+      var p = document.createElement("p");
+      p.textContent = prompt;
+      body.appendChild(p);
+      var inp = document.createElement("input");
+      inp.style.width = "100%";
+      inp.autofocus = true;
+      body.appendChild(inp);
+      var hint = document.createElement("div");
+      hint.className = "hint";
+      hint.textContent = typeName === "Boolean" ? "rispondi true/false" :
+        typeName === "Integer" ? "numero intero" : typeName === "Real" ? "numero decimale" : typeName === "Char" ? "un carattere" : "testo";
+      body.appendChild(hint);
+      inp.onkeydown = function (e) {
+        if (e.key === "Enter") {
+          if (validInput(inp.value, typeName)) finish(inp.value);
+        }
+      };
+      setTimeout(function () { inp.focus(); }, 30);
+    }, [
+      { label: "Annulla", action: function () { finish(null); } },
+      { label: "OK", primary: true, action: function (body) {
+          var inp = body.querySelector("input");
+          if (validInput(inp.value, typeName)) finish(inp.value);
+          else inp.focus();
+        } }
+    ]);
+  });
+}
+function validInput(s, typeName) {
+  try { coerceInput(s, typeName); return true; }
+  catch (err) { setStatus("Input non valido: " + err.message, true); return false; }
+}
+
+/* ---- form helpers ---- */
+function frow(label, ctl) {
+  var d = document.createElement("div");
+  d.className = "formrow";
+  var l = document.createElement("label");
+  l.textContent = label;
+  d.appendChild(l);
+  var wrap = document.createElement("div");
+  wrap.className = "fill";
+  wrap.appendChild(ctl);
+  d.appendChild(wrap);
+  return d;
+}
+function ftext(value, placeholder, withDatalist) {
+  var i = document.createElement("input");
+  i.type = "text";
+  i.value = value || "";
+  if (placeholder) i.placeholder = placeholder;
+  if (withDatalist) i.setAttribute("list", "fndatalist");
+  return i;
+}
+function fsel(options, value) {
+  var s = document.createElement("select");
+  options.forEach(function (o) {
+    var opt = document.createElement("option");
+    opt.value = o.v; opt.textContent = o.t;
+    s.appendChild(opt);
+  });
+  s.value = value;
+  return s;
+}
+function fcheck(value, label) {
+  var l = document.createElement("label");
+  var i = document.createElement("input");
+  i.type = "checkbox";
+  i.checked = !!value;
+  l.appendChild(i);
+  l.appendChild(document.createTextNode(" " + label));
+  return l;
+}
+function varSelect(fn, filter) {
+  var vars = collectVars(fn).filter(function (v) { return !filter || filter(v); });
+  var opts = [{ v: "", t: "\u2014 scegli variabile \u2014" }].concat(vars.map(function (v) {
+    return { v: v.name, t: v.name + " (" + v.type + (v.arr ? "[]" : "") + ")" };
+  }));
+  return fsel(opts, "");
+}
+
+var BUILTIN_LIST = ["ToInteger", "ToReal", "ToString", "ToChar", "ToASCII", "Length", "Size", "Char", "Abs", "Ceiling", "Floor", "Round", "Sqrt", "Sin", "Cos", "Tan", "Log", "Power", "Random", "Min", "Max", "TurtleMove", "TurtleTurn", "TurtleGoTo", "TurtlePenUp", "TurtlePenDown", "TurtlePenColor", "TurtleHome", "TurtleClear", "TurtleShow", "TurtleHide"];
+
+/* ---- modali dei blocchi ---- */
+function openBlockModal(b, fresh) {
+  var fn = currentFn();
+  var title = { declare: "Dichiarazione variabili", assign: "Assegnazione", input: "Input", output: "Output", if: "If / Else", while: "While", for: "For", do: "Do While", call: "Chiamata funzione", return: "Return", comment: "Commento" }[b.type] || b.type;
+  var el;
+
+  modalOpen(title, function (body, close) {
+    switch (b.type) {
+      case "declare": {
+        el = buildDeclareRows(b.vars);
+        body.appendChild(el.table);
+        var add = document.createElement("button");
+        add.className = "btn small";
+        add.textContent = "+ variabile";
+        add.onclick = function () { el.addRow({ name: "", type: "Integer", arr: false, size: "10" }); };
+        body.appendChild(add);
+        break;
+      }
+      case "assign": {
+        var vs = varSelect(fn);
+        vs.value = b.var || "";
+        var row1 = frow("Variabile", vs);
+        body.appendChild(row1);
+        var idxWrap = document.createElement("div");
+        var idxInp = ftext(b.index || "", "es. 0");
+        idxWrap.appendChild(idxInp);
+        var idxRow = frow("Indice", idxWrap);
+        idxRow.style.display = "none";
+        body.appendChild(idxRow);
+        function syncIdx() {
+          var v = collectVars(fn).filter(function (x) { return x.name === vs.value; })[0];
+          idxRow.style.display = v && v.arr ? "" : "none";
+        }
+        vs.onchange = syncIdx; syncIdx();
+        var ex = ftext(b.expr || "", "es. x + 1", true);
+        body.appendChild(frow("Espressione", ex));
+        el = { get: function () { return { var: vs.value, index: idxRow.style.display === "none" ? null : idxInp.value, expr: ex.value }; } };
+        break;
+      }
+      case "input": {
+        var vs2 = varSelect(fn);
+        vs2.value = b.var || "";
+        body.appendChild(frow("Variabile", vs2));
+        var idxWrap2 = document.createElement("div");
+        var idxInp2 = ftext(b.index || "", "es. 0");
+        idxWrap2.appendChild(idxInp2);
+        var idxRow2 = frow("Indice", idxWrap2);
+        idxRow2.style.display = "none";
+        body.appendChild(idxRow2);
+        function syncIdx2() {
+          var v = collectVars(fn).filter(function (x) { return x.name === vs2.value; })[0];
+          idxRow2.style.display = v && v.arr ? "" : "none";
+        }
+        vs2.onchange = syncIdx2; syncIdx2();
+        var pr = ftext(b.prompt || "", "Domanda mostrata all'utente");
+        body.appendChild(frow("Prompt", pr));
+        el = { get: function () { return { var: vs2.value, index: idxRow2.style.display === "none" ? null : idxInp2.value, prompt: pr.value }; } };
+        break;
+      }
+      case "output": {
+        var ex2 = ftext(b.expr || "", 'es. "Ciao" oppure x * 2', true);
+        body.appendChild(frow("Espressione", ex2));
+        body.appendChild(frow("", fcheck(b.nl !== false, "Vai a capo dopo l'output")));
+        el = { get: function () {
+          var chk = body.querySelector('input[type="checkbox"]');
+          return { expr: ex2.value, nl: chk.checked };
+        } };
+        break;
+      }
+      case "if": case "while": case "do": {
+        var c = ftext(b.cond || "", "es. x > 0", true);
+        body.appendChild(frow("Condizione", c));
+        el = { get: function () { return { cond: c.value }; } };
+        break;
+      }
+      case "for": {
+        var vs3 = varSelect(fn, function (v) { return v.type === "Integer" && !v.arr; });
+        vs3.value = b.var || "";
+        body.appendChild(frow("Variabile", vs3));
+        var fr = ftext(b.from || "1", "es. 1");
+        body.appendChild(frow("Da", fr));
+        var to = ftext(b.to || "10", "es. 10");
+        body.appendChild(frow("A", to));
+        var st = ftext(b.step || "1", "es. 2");
+        body.appendChild(frow("Passo", st));
+        var dir = fsel([{ v: "up", t: "crescente (to)" }, { v: "down", t: "decrescente (downto)" }], b.dir || "up");
+        body.appendChild(frow("Direzione", dir));
+        el = { get: function () { return { var: vs3.value, from: fr.value, to: to.value, step: st.value, dir: dir.value }; } };
+        break;
+      }
+      case "call": {
+        var fopts = [{ v: "", t: "\u2014 scegli funzione \u2014" }].concat(fns().map(function (f) {
+          return { v: f.name, t: f.name + "(" + (f.params || []).map(function (p) { return p.name; }).join(", ") + ")" + (f.ret ? " : " + f.ret : "") };
+        }));
+        var fs = fsel(fopts, b.fn || "");
+        body.appendChild(frow("Funzione", fs));
+        var argsHost = document.createElement("div");
+        body.appendChild(frow("Argomenti", argsHost));
+        function rebuildArgs(sel) {
+          argsHost.innerHTML = "";
+          var f = findFnByName(sel);
+          if (!f) return;
+          (f.params || []).forEach(function (p, i) {
+            var a = ftext((b.args && b.args[i]) || "", p.name + " (" + p.type + ")", true);
+            argsHost.appendChild(a);
+          });
+        }
+        fs.onchange = function () { rebuildArgs(fs.value); };
+        rebuildArgs(b.fn);
+        el = { get: function () {
+          return { fn: fs.value, args: Array.prototype.slice.call(argsHost.querySelectorAll("input")).map(function (i) { return i.value; }) };
+        } };
+        break;
+      }
+      case "return": {
+        if (fn.ret) {
+          var ex3 = ftext(b.expr || "", "es. x * 2", true);
+          body.appendChild(frow("Valore (" + fn.ret + ")", ex3));
+          el = { get: function () { return { expr: ex3.value }; } };
+        } else {
+          var p = document.createElement("p");
+          p.textContent = "Questa funzione non restituisce un valore.";
+          body.appendChild(p);
+          el = { get: function () { return { expr: "" }; } };
+        }
+        break;
+      }
+      case "comment": {
+        var ta = document.createElement("textarea");
+        ta.rows = 3; ta.style.width = "100%";
+        ta.value = b.text || "";
+        body.appendChild(frow("Testo", ta));
+        el = { get: function () { return { text: ta.value }; } };
+        break;
+      }
+    }
+  }, [
+    { label: "Annulla", action: function (bd, errEl, close) {
+        if (fresh) { var ref = findBlock(b.id); if (ref) ref.arr.splice(ref.index, 1); commit(); }
+        close();
+      } },
+    { label: "OK", primary: true, action: function (bd, errEl, close) {
+        var data = el.get();
+        var err = validateBlock(b, data);
+        if (err) { errEl.textContent = err; return; }
+        Object.keys(data).forEach(function (k) { b[k] = data[k]; });
+        close();
+        commit();
+      } }
+  ]);
+}
+
+function validateBlock(b, d) {
+  function tryParse(s, what) {
+    try { parse(s); return null; } catch (e) { return what + ": " + e.message; }
+  }
+  var fn = currentFn();
+  switch (b.type) {
+    case "declare":
+      if (!d.vars.length) return "Serve almeno una variabile";
+      for (var i = 0; i < d.vars.length; i++) {
+        var v = d.vars[i];
+        if (!/^[A-Za-z_]\w*$/.test(v.name)) return "Nome variabile non valido: '" + v.name + "'";
+        if (v.arr && (constEval(v.size) === null || constEval(v.size) < 1)) return "Dimensione array non valida per " + v.name;
+      }
+      return null;
+    case "assign": case "input":
+      if (!d.var) return "Scegli una variabile";
+      if (d.index) { var e1 = tryParse(d.index, "Indice"); if (e1) return e1; }
+      if (b.type === "assign") { if (!d.expr) return "Manca l'espressione"; var e2 = tryParse(d.expr, "Espressione"); if (e2) return e2; }
+      return null;
+    case "output":
+      if (!d.expr) return "Manca l'espressione";
+      return tryParse(d.expr, "Espressione");
+    case "if": case "while": case "do":
+      if (!d.cond) return "Manca la condizione";
+      return tryParse(d.cond, "Condizione");
+    case "for":
+      if (!d.var) return "Scegli la variabile contatore";
+      if (constEval(d.step) === 0) return "Il passo non pu\u00f2 essere 0";
+      var eF = tryParse(d.from, "Da"); if (eF) return eF;
+      var eT = tryParse(d.to, "A"); if (eT) return eT;
+      var eS = tryParse(d.step, "Passo"); if (eS) return eS;
+      return null;
+    case "call":
+      if (!d.fn) return "Scegli una funzione";
+      var f = findFnByName(d.fn);
+      if (!f) return "Funzione inesistente";
+      if (d.args.length !== (f.params || []).length) return "Attesi " + (f.params || []).length + " argomenti";
+      for (var j = 0; j < d.args.length; j++) {
+        if (!d.args[j]) return "Manca l'argomento " + (j + 1);
+        var eA = tryParse(d.args[j], "Argomento " + (j + 1)); if (eA) return eA;
+      }
+      return null;
+    case "return":
+      if (fn.ret && d.expr) return tryParse(d.expr, "Espressione");
+      return null;
+  }
+  return null;
+}
+
+function buildDeclareRows(vars) {
+  var table = document.createElement("table");
+  table.className = "rows-table";
+  var rows = deepCopy(vars);
+  function render() {
+    table.innerHTML = "<tr><td></td><td>Nome</td><td>Tipo</td><td>Array</td><td>Dim.</td><td></td></tr>";
+    rows.forEach(function (r, i) {
+      var tr = document.createElement("tr");
+      var td0 = document.createElement("td"); td0.textContent = "var";
+      var name = document.createElement("input"); name.value = r.name;
+      name.oninput = function () { r.name = name.value; };
+      var type = fsel(TYPES.map(function (t) { return { v: t, t: t }; }), r.type);
+      type.onchange = function () { r.type = type.value; };
+      var arr = document.createElement("input"); arr.type = "checkbox"; arr.checked = r.arr;
+      arr.onchange = function () { r.arr = arr.checked; render(); };
+      var size = document.createElement("input"); size.value = r.size || "10";
+      size.oninput = function () { r.size = size.value; };
+      var del = document.createElement("button");
+      del.className = "btn small";
+      del.textContent = "\u2715";
+      del.onclick = function () { rows.splice(i, 1); render(); };
+      [name, type, arr, size].forEach(function (c) { var td = document.createElement("td"); td.appendChild(c); tr.appendChild(td); });
+      var tdd = document.createElement("td"); tdd.className = "delrow"; tdd.appendChild(del); tr.appendChild(tdd);
+      table.appendChild(tr);
+    });
+  }
+  render();
+  return {
+    table: table,
+    addRow: function (r) { rows.push(r); render(); },
+    get: function () { return { vars: rows }; }
+  };
+}
+
+/* ---- modale funzione ---- */
+function openFunctionModal(fn) {
+  var isNew = !fn;
+  var data = fn ? { name: fn.name, params: deepCopy(fn.params || []), ret: fn.ret } : { name: "Funzione" + (fns().length + 1), params: [], ret: null };
+  var el;
+  modalOpen(isNew ? "Nuova funzione" : "Modifica funzione", function (body) {
+    var name = ftext(data.name);
+    body.appendChild(frow("Nome", name));
+    var table = document.createElement("table");
+    table.className = "rows-table";
+    function renderP() {
+      table.innerHTML = "<tr><td>Parametro</td><td>Tipo</td><td></td></tr>";
+      data.params.forEach(function (p, i) {
+        var tr = document.createElement("tr");
+        var pn = document.createElement("input"); pn.value = p.name;
+        pn.oninput = function () { p.name = pn.value; };
+        var pt = fsel(TYPES.map(function (t) { return { v: t, t: t }; }), p.type);
+        pt.onchange = function () { p.type = pt.value; };
+        var del = document.createElement("button"); del.className = "btn small"; del.textContent = "\u2715";
+        del.onclick = function () { data.params.splice(i, 1); renderP(); };
+        [pn, pt].forEach(function (c) { var td = document.createElement("td"); td.appendChild(c); tr.appendChild(td); });
+        var tdd = document.createElement("td"); tdd.className = "delrow"; tdd.appendChild(del); tr.appendChild(tdd);
+        table.appendChild(tr);
+      });
+    }
+    renderP();
+    body.appendChild(frow("Parametri", table));
+    var addP = document.createElement("button");
+    addP.className = "btn small";
+    addP.textContent = "+ parametro";
+    addP.onclick = function () { data.params.push({ name: "p" + (data.params.length + 1), type: "Integer" }); renderP(); };
+    body.appendChild(frow("", addP));
+    var ret = fsel([{ v: "", t: "nessuno (void)" }].concat(TYPES.map(function (t) { return { v: t, t: t }; })), data.ret || "");
+    body.appendChild(frow("Restituisce", ret));
+    el = { get: function () { return { name: name.value.trim(), params: data.params, ret: ret.value || null }; } };
+  }, [
+    { label: "Annulla", action: function (b, e, close) { close(); } },
+    { label: "OK", primary: true, action: function (b, e, close) {
+        var d = el.get();
+        if (!/^[A-Za-z_]\w*$/.test(d.name)) { e.textContent = "Nome non valido"; return; }
+        var clash = fns().some(function (f) { return f !== fn && f.name.toLowerCase() === d.name.toLowerCase(); });
+        if (clash) { e.textContent = "Esiste gi\u00e0 una funzione con questo nome"; return; }
+        for (var i = 0; i < d.params.length; i++) {
+          if (!/^[A-Za-z_]\w*$/.test(d.params[i].name)) { e.textContent = "Nome parametro non valido"; return; }
+        }
+        if (d.name.toLowerCase() === "main" && !isNew && fn && fn.name !== "Main" && fns()[0] !== fn) { /* ok */ }
+        if (isNew) {
+          var f2 = newFn(d.name);
+          f2.params = d.params; f2.ret = d.ret;
+          fns().push(f2);
+          curFnId = f2.id;
+        } else {
+          fn.name = d.name; fn.params = d.params; fn.ret = d.ret;
+        }
+        close();
+        commit();
+      } }
+  ]);
+}
+
+/* ---- modale export codice ---- */
+function openExportModal() {
+  var current = "python";
+  var txt;
+  modalOpen("Esporta codice", function (body, close) {
+    var lang = fsel([
+      { v: "python", t: "Python" },
+      { v: "js", t: "JavaScript" },
+      { v: "c", t: "C" },
+      { v: "java", t: "Java" }
+    ], current);
+    body.appendChild(frow("Linguaggio", lang));
+    txt = document.createElement("textarea");
+    txt.id = "codegen-text";
+    txt.readOnly = true;
+    txt.value = genProgram(current);
+    body.appendChild(txt);
+    lang.onchange = function () {
+      current = lang.value;
+      txt.value = genProgram(current);
+    };
+  }, [
+    { label: "Chiudi", action: function (b, e, close) { close(); } },
+    { label: "Copia", action: function () {
+        txt.select();
+        try { document.execCommand("copy"); } catch (err) {}
+    } },
+    { label: "Scarica", primary: true, action: function () {
+        var ext = { python: "py", js: "js", c: "c", java: "java" }[current];
+        download(fns()[0].name.replace(/\W+/g, "_").toLowerCase() + "." + ext, txt.value);
+    } }
+  ]);
+}
+
+/* ---- help / about ---- */
+function openHelpModal() {
+  modalOpen("Guida rapida", function (body) {
+    body.innerHTML =
+      '<div class="helpdoc">' +
+      "<h4>Editor</h4>" +
+      "<ul>" +
+      "<li>Trascina un blocco dalla palette su una <b>linea verde</b> del diagramma.</li>" +
+      "<li><b>Doppio clic</b> su un blocco per modificarlo; <b>clic destro</b> per Modifica / Duplica / Elimina.</li>" +
+      "<li>Le tab in alto gestiscono le funzioni (clic destro per modificarle/eliminarle; \u201c+\u201d per crearne una).</li>" +
+      "</ul>" +
+      "<h4>Esecuzione</h4>" +
+      "<ul>" +
+      "<li><b>Esegui</b> (F5) avvia; <b>Pausa</b> ferma/riprende; <b>Passo</b> (F10) esegue un blocco alla volta; <b>Stop</b> termina.</li>" +
+      "<li>Nel pannello <b>Variabili</b> vedi lo stato corrente; il blocco in esecuzione \u00e8 evidenziato.</li>" +
+      "</ul>" +
+      "<h4>Espressioni</h4>" +
+      "<ul>" +
+      "<li>Operatori: <code>+ - * /</code> &nbsp; <code>mod</code> &nbsp; <code>^</code> (potenza) &nbsp; <code>&amp;</code> (concatena stringhe)</li>" +
+      "<li>Confronti: <code>=</code> <code>!=</code> <code>&lt;</code> <code>&lt;=</code> <code>&gt;</code> <code>&gt;=</code> &nbsp; logici: <code>and</code> <code>or</code> <code>not</code></li>" +
+      "<li>Con due Integer la divisione <code>/</code> \u00e8 <b>intera</b> (troncata). Usa <code>ToReal(a)/b</code> o variabili Real per la divisione con decimali.</li>" +
+      "<li>Stringhe tra virgolette: <code>\"Ciao\"</code>. Le variabili sono <b>0-based</b>.</li>" +
+      "</ul>" +
+      "<h4>Funzioni predefinite</h4>" +
+      "<ul><li><code>ToInteger ToReal ToString ToChar ToASCII Length Size Char</code></li>" +
+      "<li><code>Abs Ceiling Floor Round Sqrt Sin Cos Tan Log Power Random Min Max</code></li></ul>" +
+      "<h4>Turtle Graphics</h4>" +
+      "<ul><li><code>TurtleMove(d) TurtleTurn(a) TurtleGoTo(x,y) TurtlePenUp TurtlePenDown TurtlePenColor(c) TurtleHome TurtleClear TurtleShow TurtleHide</code></li>" +
+      "<li>Origine al centro, angolo in gradi, 0 = verso l'alto.</li></ul>" +
+      "</div>";
+  }, [{ label: "Chiudi", primary: true, action: function (b, e, close) { close(); } }]);
+}
+function openAboutModal() {
+  modalOpen("Informazioni", function (body) {
+    body.innerHTML =
+      '<div class="helpdoc"><p><b>FlowWeb</b> \u2014 IDE a flowchart che gira interamente nel browser.</p>' +
+      "<p>Ispirato all'interfaccia di Flowgorithm, ma \u00e8 un'implementazione originale e indipendente (nessun codice di Flowgorithm \u00e8 stato usato).</p>" +
+      "<p>Editor drag&amp;drop \u2022 interprete con debug passo-passo \u2022 esportazione Python / JavaScript / C / Java \u2022 turtle graphics.</p>" +
+      "<p class='hint'>Il programma viene salvato automaticamente in localStorage.</p></div>";
+  }, [{ label: "OK", primary: true, action: function (b, e, close) { close(); } }]);
+}
+
+/* ============================================================== BOOT */
+function boot() {
+  buildMenubar();
+  buildToolbar();
+  buildPalette();
+  setupDnD();
+  setupSvgEvents();
+  document.querySelectorAll(".btab").forEach(function (t) {
+    t.onclick = function () {
+      document.querySelectorAll(".btab").forEach(function (x) { x.classList.remove("active"); });
+      document.querySelectorAll(".bpanel").forEach(function (p) { p.classList.remove("active"); });
+      t.classList.add("active");
+      document.getElementById("panel-" + t.dataset.p).classList.add("active");
+      if (t.dataset.p === "turtle") turtleDrawMark();
+    };
+  });
+  document.getElementById("console-clear").onclick = consoleClear;
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "F5") { e.preventDefault(); doRunBtn(); }
+    if (e.key === "F10") { e.preventDefault(); doStepBtn(); }
+  });
+  if (!loadLocal()) {
+    PROGRAM = EXAMPLES[1].make(); // Indovina il numero
+    curFnId = PROGRAM.functions[0].id;
+  }
+  render();
+  turtleReset();
+  consoleAppend("Benvenuto in FlowWeb \u2014 trascina i blocchi sul diagramma e premi Esegui (F5).\n", "sys");
+  setStatus("Pronto.");
+}
+
+if (typeof document !== "undefined" && document.getElementById("svg")) {
+  boot();
+}
+</script>
+</body>
+</html>
