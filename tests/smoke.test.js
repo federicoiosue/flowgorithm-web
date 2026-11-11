@@ -29,11 +29,24 @@ const htmlPath = htmlFlagIx >= 0
   ? path.resolve(argv[htmlFlagIx + 1])
   : (process.env.FLOWWEB_HTML ? path.resolve(process.env.FLOWWEB_HTML) : path.join(ROOT, "index.html"));
 
-/* ---------- extract the inline app script ---------- */
+/* ---------- Build the list of <script> sources: either the inline bundle
+   (legacy single-file dist) or the external script srcs introduced by the
+   vanilla-modules split. ---------- */
 const html = fs.readFileSync(htmlPath, "utf8");
-const m = html.match(/<script>([\s\S]*)<\/script>/);
-if (!m) {
-  console.error("FATAL: cannot extract inline <script> from " + htmlPath);
+const inline = html.match(/<script>([\s\S]*?)<\/script>/);
+const scriptTags = [...html.matchAll(/<script\s+src="([^"]+)"/g)].map((m) => m[1]);
+
+let sourcesToEval;
+if (scriptTags.length) {
+  // vanilla-modules layout: load each script in markup order.
+  sourcesToEval = scriptTags.map((rel) => {
+    const abs = path.join(path.dirname(htmlPath), rel);
+    return fs.readFileSync(abs, "utf8");
+  });
+} else if (inline) {
+  sourcesToEval = [inline[1]];
+} else {
+  console.error("FATAL: cannot find any <script> in " + htmlPath);
   process.exit(1);
 }
 
@@ -81,7 +94,7 @@ const ctx = vm.createContext({
   localStorage: { getItem: () => null, setItem() {} },
   alert(msg) { throw new Error("unexpected alert(): " + msg); },
 });
-vm.runInContext(m[1], ctx);
+sourcesToEval.forEach((code) => vm.runInContext(code, ctx));
 
 /* Capture console output in a plain string and make execution instant. */
 vm.runInContext(`

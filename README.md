@@ -41,6 +41,38 @@ Try **File → Examples** for ready-made demo programs (number guessing game, re
 - Comparisons use `=`, `!=`, `<`, `<=`, `>`, `>=`; logical operators are `and`, `or`, `not`.
 - Built-in functions: `ToInteger ToReal ToString ToChar ToASCII Length Size Char Abs Ceiling Floor Round Sqrt Sin Cos Tan Log Power Random Min Max`.
 
+## Project structure
+
+The app was originally a single self-contained HTML file. It is now split
+into small, named modules so the parser, interpreter, codegen and UI each
+have a clear home — but **still no build step**:
+
+- **`index.html`** — thin shell. Lists the MD3 stylesheet plus an ordered
+  series of `<script src>` tags. Open it directly (`file:///…`) and the app
+  runs; no npm, no server.
+- **`src/`** — the source files:
+  - core logic: `helpers.js`, `i18n.js`, `parser.js`, `model.js`,
+    `types.js`, `turtle.js`, `runtime.js`, `run_control.js`, `render.js`,
+    `codegen.js`
+  - `src/ui/` — chrome, tabs, drag-and-drop, modals, file ops, theme, boot
+  - `src/styles/md3.css` — the Material Design 3 tokens
+
+Every `<script src>` runs in markup order and keeps its top-level code in
+the global namespace, which is the same contract the original single-file
+implementation relied on.
+
+## Tests
+
+```bash
+npm install                   # only needed for Playwright / UI checks
+node tests/smoke.test.js      # 27 assertions against index.html
+node tests/mutation.test.js   # 11 mutants, each targeting one src/ file
+```
+
+Mutation testing works by rewriting one source file for the duration of
+the smoke run (and restoring it afterwards), so there is exactly one
+source tree — no duplicated single-file bundle to keep in sync.
+
 ## Mutation testing
 
 `tests/mutation.test.js` proves the smoke suite actually *asserts* the behaviors it exercises, by running the suite against intentionally-broken copies of the app and failing if any break slips past undetected.
