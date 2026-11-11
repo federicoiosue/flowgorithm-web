@@ -1,0 +1,191 @@
+#!/usr/bin/env node
+"use strict";
+/**
+ * Headless smoke tests for FlowWeb.
+ *
+ * Extracts the inline application script from index.html, runs it inside a
+ * Node VM with minimal DOM stubs and exercises:
+ *
+ *   1. the expression parser (precedence, concatenation, indexing, calls)
+ *   2. arithmetic semantics (integer division, modulo, power, div by zero)
+ *   3. the interpreter, on the built-in example programs
+ *   4. runtime error reporting
+ *   5. the code generators (Python, JavaScript, C, Java)
+ *
+ * Run:  node tests/smoke.test.js
+ * Exit: 0 = all passed, 1 = failures
+ */
+
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+
+const ROOT = path.join(__dirname, "..");
+
+/* ---------- extract the inline app script ---------- */
+const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const m = html.match(/<script>([\s\S]*)<\/script>/);
+if (!m) {
+  console.error("FATAL: cannot extract inline <script> from index.html");
+  process.exit(1);
+}
+
+/* ---------- minimal DOM stubs ---------- */
+function makeCanvas() {
+  const ctx2d = new Proxy({}, {
+    get: (t, k) => (k === "measureText" ? (s) => ({ width: s.length * 7 }) : () => {}),
+  });
+  return { width: 420, height: 420, getContext: () => ctx2d };
+}
+function makeEl(id) {
+  return {
+    id,
+    innerHTML: "", textContent: "", value: "", style: {}, dataset: {},
+    classList: { toggle() {}, add() {}, remove() {}, contains: () => false },
+    appendChild() {}, remove() {},
+    querySelector: () => null, querySelectorAll: () => [],
+    addEventListener() {}, setAttribute() {}, focus() {},
+    getBoundingClientRect: () => ({ top: 0, left: 0, bottom: 420, right: 420, width: 420, height: 420 }),
+  };
+}
+const elements = {};
+const documentStub = {
+  createElement: () => makeEl(),
+  createElementNS: () => makeEl(),
+  getElementById(id) {
+    if (id === "svg") return null; // prevents the browser-only boot()
+    if (!elements[id]) {
+      elements[id] = (id === "turtle-path" || id === "turtle-mark") ? makeCanvas() : makeEl(id);
+    }
+    return elements[id];
+  },
+  querySelectorAll: () => [],
+  addEventListener() {},
+  body: makeEl("body"),
+};
+
+const ctx = vm.createContext({
+  document: documentStub,
+  console,
+  setTimeout,
+  Math,
+  JSON,
+  Promise,
+  localStorage: { getItem: () => null, setItem() {} },
+  alert(msg) { throw new Error("unexpected alert(): " + msg); },
+});
+vm.runInContext(m[1], ctx);
+
+/* Capture console output in a plain string and make execution instant. */
+vm.runInContext(`
+  globalThis.__log = "";
+  consoleAppend = (text) => { globalThis.__log += text; };
+  RT.speed = 0;
+  RT.gate = async function (b) {
+    this.steps++;
+    this.currentBlock = b;
+    if (this.stopFlag) throw { stop: true };
+  };
+  globalThis.__answers = [];
+  RT.askInput = async (b, t) => String(globalThis.__answers.shift());
+  globalThis.__test = {
+    setProgram(p) { PROGRAM = p; curFnId = p.functions[0].id; },
+    async run() { globalThis.__log = ""; await startRun("run"); return globalThis.__log; },
+    setAnswers(a) { globalThis.__answers = a.slice(); },
+    gen(lang) { return genProgram(lang); },
+    makeExample(i) { return EXAMPLES[i].make(); },
+    fns() { return PROGRAM.functions; },
+    parse, binop, EXAMPLES,
+  };
+`, ctx);
+
+const T = vm.runInContext("globalThis.__test", ctx);
+
+/* ---------- assertions ---------- */
+let passed = 0;
+let failed = 0;
+function check(name, cond, extra) {
+  if (cond) { passed++; console.log("ok   " + name); }
+  else { failed++; console.error("FAIL " + name + (extra ? "  <<< " + extra + " >>>" : "")); }
+}
+
+(async () => {
+  /* 1. parser */
+  const e1 = T.parse("1 + 2 * 3");
+  check("parser: * binds tighter than +", e1.op === "+" && e1.r.op === "*");
+  const e2 = T.parse('"a" & "b"');
+  check("parser: & concatenation", e2.op === "&");
+  const e3 = T.parse("x[2]");
+  check("parser: array indexing", e3.t === "idx");
+  const e4 = T.parse("Random(100) + 1");
+  check("parser: call inside expression", e4.t === "bin" && e4.l.t === "call");
+  const e5 = T.parse("not (a and b)");
+  check("parser: logical not/and", e5.t === "un" && e5.op === "not");
+
+  /* 2. arithmetic semantics */
+  const I = (v) => ({ t: "Integer", v });
+  check("semantics: integer division truncates (7/2 = 3)", T.binop("/", I(7), I(2)).v === 3);
+  check("semantics: modulo (7 mod 3 = 1)", T.binop("%", I(7), I(3)).v === 1);
+  check("semantics: power (2^10 = 1024)", T.binop("^", I(2), I(10)).v === 1024);
+  const rd = T.binop("/", { t: "Real", v: 7 }, I(2));
+  check("semantics: real division keeps decimals", rd.t === "Real" && rd.v === 3.5);
+  let threw = false;
+  try { T.binop("/", I(1), I(0)); } catch (e) { threw = !!e.rt; }
+  check("semantics: division by zero raises runtime error", threw);
+
+  /* 3. interpreter on built-in examples */
+  T.setProgram(T.makeExample(1)); // guess the number
+  T.fns()[0].body[1].expr = "42"; // deterministic secret
+  T.setAnswers(["42"]);
+  const log1 = await T.run();
+  check("interpreter: guess-the-number wins in one try", /Hai indovinato in 1 tentativi/.test(log1), log1);
+
+  T.setProgram(T.makeExample(2)); // recursive factorial
+  T.setAnswers(["5"]);
+  const log2 = await T.run();
+  check("interpreter: recursive factorial of 5 = 120", log2.includes("120"), log2);
+
+  T.setProgram(T.makeExample(3)); // average of n numbers
+  T.setAnswers(["3", "2", "4", "6"]);
+  const log3 = await T.run();
+  check("interpreter: average of 2,4,6 = 4", log3.includes("Media: 4"), log3);
+
+  T.setProgram(T.makeExample(4)); // turtle spiral
+  const log4 = await T.run();
+  check("interpreter: turtle spiral completes", log4.includes("Fatto!"), log4);
+
+  /* 4. runtime error reporting */
+  const divZero = vm.runInContext(`(function () {
+    const p = newProgram();
+    const m = p.functions[0];
+    const d = newBlock("declare");
+    d.vars = [{ name: "a", type: "Integer", arr: false, size: "10" }];
+    m.body.push(d);
+    const a1 = newBlock("assign"); a1.var = "a"; a1.expr = "1/0"; m.body.push(a1);
+    const o = newBlock("output"); o.expr = "a"; m.body.push(o);
+    return p;
+  })()`, ctx);
+  T.setProgram(divZero);
+  const log5 = await T.run();
+  check("interpreter: reports division by zero", log5.includes("Divisione per zero"), log5);
+
+  /* 5. code generators */
+  T.setProgram(T.makeExample(2));
+  const py = T.gen("python");
+  check("codegen: python emits recursive function", py.includes("def Fattoriale(n):"));
+  check("codegen: python emits main entrypoint", py.includes('if __name__ == "__main__":'));
+  const js = T.gen("js");
+  check("codegen: javascript emits main", js.includes("function main()"));
+  check("codegen: javascript declares locals", js.includes("var n, r;"));
+  const c = T.gen("c");
+  check("codegen: C declares prototypes", c.includes("int Fattoriale(int n);"));
+  check("codegen: C main returns int", /int main\(void\)/.test(c));
+  const jv = T.gen("java");
+  check("codegen: Java wraps in Program class", jv.includes("public class Program"));
+
+  console.log("\n" + passed + " passed, " + failed + " failed");
+  process.exit(failed ? 1 : 0);
+})().catch((e) => {
+  console.error("SUITE ERROR:", e);
+  process.exit(1);
+});
