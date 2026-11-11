@@ -32,9 +32,24 @@ function menuModel() {
     ]}
   ];
 }
+function closeAllMenus() {
+  document.querySelectorAll(".menu-item.open").forEach(function (x) { x.classList.remove("open"); var d = x.querySelector(".dropdown"); if (d) d.remove(); });
+}
+var MENUBAR_OUTSIDE_BOUND = false;
+// buildMenubar runs again whenever the chrome is rebuilt, so bind the
+// document listener once instead of stacking a new one per call
+function bindMenubarOutsideClose() {
+  if (MENUBAR_OUTSIDE_BOUND) return;
+  MENUBAR_OUTSIDE_BOUND = true;
+  document.addEventListener("mousedown", function (e) {
+    if (e.target.closest && e.target.closest("#menubar")) return;
+    closeAllMenus();
+  });
+}
 function buildMenubar() {
   var bar = document.getElementById("menubar");
   bar.innerHTML = "";
+  bindMenubarOutsideClose();
   var logo = document.createElement("div");
   logo.id = "app-title";
   logo.innerHTML = "<b>Flow</b>Web";
@@ -74,9 +89,6 @@ function buildMenubar() {
     };
     bar.appendChild(it);
   });
-  function closeAllMenus() {
-    document.querySelectorAll(".menu-item.open").forEach(function (x) { x.classList.remove("open"); var d = x.querySelector(".dropdown"); if (d) d.remove(); });
-  }
   var spacer = document.createElement("span");
   spacer.className = "grow";
   spacer.style.flex = "1";
