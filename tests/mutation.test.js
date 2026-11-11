@@ -109,6 +109,12 @@ const MUTANTS = [
     find: 'lines.push("function " + (fn.name === "Main" ? "main" : fn.name)',
     replace: 'lines.push("function " + (fn.name === "Main" ? "entry" : fn.name)',
   },
+  {
+    id: "render-drops-trailing-zone",
+    desc: "drawChain omits the trailing insertion zone after the last block",
+    find: 'addZone(arr, arr.length, F, ey + L.GAP / 2);',
+    replace: 'if (arr.length < 0) addZone(arr, arr.length, F, ey + L.GAP / 2);',
+  },
 ];
 
 function applyOnce(html, find, replace) {

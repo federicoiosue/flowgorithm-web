@@ -60,20 +60,28 @@ function makeCanvas() {
 function makeEl(id) {
   return {
     id,
+    firstChild: null,
     innerHTML: "", textContent: "", value: "", style: {}, dataset: {},
     classList: { toggle() {}, add() {}, remove() {}, contains: () => false },
-    appendChild() {}, remove() {},
+    appendChild() {}, removeChild() {}, remove() {},
     querySelector: () => null, querySelectorAll: () => [],
     addEventListener() {}, setAttribute() {}, focus() {},
     getBoundingClientRect: () => ({ top: 0, left: 0, bottom: 420, right: 420, width: 420, height: 420 }),
   };
 }
 const elements = {};
+// #svg is null while the sources load (prevents the browser-only boot()) and
+// only materialises afterwards, so render() can be exercised headlessly.
+let svgEnabled = false;
 const documentStub = {
-  createElement: () => makeEl(),
+  createElement: (tag) => (tag === "canvas" ? makeCanvas() : makeEl()),
   createElementNS: () => makeEl(),
   getElementById(id) {
-    if (id === "svg") return null; // prevents the browser-only boot()
+    if (id === "svg") {
+      if (!svgEnabled) return null;
+      if (!elements.svg) elements.svg = makeEl("svg");
+      return elements.svg;
+    }
     if (!elements[id]) {
       elements[id] = (id === "turtle-path" || id === "turtle-mark") ? makeCanvas() : makeEl(id);
     }
@@ -115,6 +123,22 @@ vm.runInContext(`
     gen(lang) { return genProgram(lang); },
     makeExample(i) { return EXAMPLES[i].make(); },
     fns() { return PROGRAM.functions; },
+    // renders a small program with a nested loop body so drawChain is
+    // exercised both at top level and inside a nested chain
+    renderZones() {
+      const p = newProgram();
+      const m = p.functions[0];
+      const a1 = newBlock("assign"); a1.var = "x"; a1.expr = "1"; m.body.push(a1);
+      const w = newBlock("while"); w.cond = "x < 3";
+      const b1 = newBlock("assign"); b1.var = "x"; b1.expr = "x + 1"; w.body.push(b1);
+      m.body.push(w);
+      const a2 = newBlock("assign"); a2.var = "x"; a2.expr = "0"; m.body.push(a2);
+      PROGRAM = p; curFnId = m.id;
+      render();
+      const idx = (arr) => DRAW.zones.filter((z) => z.arr === arr)
+        .map((z) => z.index).sort((a, b) => a - b);
+      return { body: m.body, loopBody: w.body, bodyIdx: idx(m.body), loopIdx: idx(w.body) };
+    },
     parse, binop, EXAMPLES,
   };
 `, ctx);
@@ -202,6 +226,19 @@ function check(name, cond, extra) {
   check("codegen: C main returns int", /int main\(void\)/.test(c));
   const jv = T.gen("java");
   check("codegen: Java wraps in Program class", jv.includes("public class Program"));
+
+  /* 5b. render layout: insertion zones (DRAW.zones) */
+  svgEnabled = true;
+  const Z1 = T.renderZones();
+  const len = Z1.body.length;
+  check("render: chain has a trailing insertion zone after the last block",
+    Z1.bodyIdx.indexOf(len) >= 0, "zones at " + Z1.bodyIdx.join(",") + " for len " + len);
+  check("render: zone indices for a chain are exactly 0..len, no gaps or duplicates",
+    Z1.bodyIdx.length === len + 1 && Z1.bodyIdx.every((n, i) => n === i),
+    Z1.bodyIdx.join(","));
+  check("render: nested loop body also ends with a trailing insertion zone",
+    Z1.loopIdx.length === Z1.loopBody.length + 1 &&
+    Z1.loopIdx.every((n, i) => n === i), Z1.loopIdx.join(","));
 
 
   /* 6. i18n */

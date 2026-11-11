@@ -120,6 +120,8 @@ function drawChain(arr, F, cy) {
       drawConnector(g2, F, ey, ey + L.GAP);
     }
   }
+  // trailing strip: inserting after the last block is what appends to the chain
+  addZone(arr, arr.length, F, ey + L.GAP / 2);
   return ey;
 }
 
