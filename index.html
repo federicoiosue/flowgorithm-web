@@ -5,157 +5,407 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FlowWeb — Flowchart IDE</title>
 <style>
+  /* =====================================================================
+     Material Design 3 styling for FlowWeb.
+     - Design tokens as CSS custom properties (MD3 color roles, elevation,
+       shape scale, type scale, state layers).
+     - Light + dark themes: [data-theme] attribute on <html>, "auto" falls
+       back to prefers-color-scheme.
+     - No external dependencies: the palette below is a static MD3 tonal
+       palette generated from a #1a5fb4-like seed (blue, 40 = primary).
+     ===================================================================== */
+
+  :root {
+    /* --- MD3 tonal palette (seed: blue) --- */
+    --md-primary-0: #000000;  --md-primary-10: #001b3d;  --md-primary-20: #003061;
+    --md-primary-30: #004687;  --md-primary-40: #1a5fb4;  --md-primary-80: #a5c8ff;
+    --md-primary-90: #d3e4ff;
+    --md-secondary-30: #4a5568; --md-secondary-40: #5b6779; --md-secondary-80: #bcc7db;
+    --md-secondary-90: #d7e3ee;
+    --md-neutral-0: #ffffff;   --md-neutral-4: #f5f7fa;   --md-neutral-6: #eef1f6;
+    --md-neutral-10: #1a1c1e;  --md-neutral-20: #2f3134;   --md-neutral-90: #e1e3e8;
+    --md-neutral-92: #e6e8ec;  --md-neutral-94: #eceef1;   --md-neutral-96: #f2f4f7;
+    --md-neutral-98: #f8f9fb;  --md-neutral-99: #fdfcfa;
+    --md-neutral-var-30: #464a52; --md-neutral-var-50: #767b84; --md-neutral-var-60: #8f949d;
+    --md-error-30: #93000a;    --md-error-40: #ba1a1a;    --md-error-80: #ffb4ab;
+    --md-error-90: #ffdad6;
+    --md-tertiary-40: #8a5a00; --md-tertiary-80: #ffdf9e;
+
+    /* --- light theme color roles --- */
+    --md-bg: var(--md-neutral-98);
+    --md-surface: var(--md-neutral-99);
+    --md-surface-1: var(--md-neutral-96);
+    --md-surface-2: var(--md-neutral-92);
+    --md-surface-3: var(--md-neutral-90);
+    --md-surface-variant: #e1e3e8;
+    --md-on-bg: var(--md-neutral-10);
+    --md-on-surface: #191c20;
+    --md-on-surface-var: #464a52;
+    --md-primary: var(--md-primary-40);
+    --md-on-primary: #ffffff;
+    --md-primary-container: var(--md-primary-90);
+    --md-on-primary-container: var(--md-primary-10);
+    --md-secondary-container: var(--md-secondary-90);
+    --md-on-secondary-container: #121c2b;
+    --md-error: var(--md-error-40);
+    --md-on-error-container: #410002;
+    --md-outline: #767b84;
+    --md-outline-variant: #c3c7cf;
+    --md-inverse-surface: #2f3134;
+    --md-inverse-on-surface: var(--md-neutral-96);
+    --md-scrim: rgba(0, 0, 0, .35);
+
+    /* --- elevation (MD3 levels 0-5) --- */
+    --md-elev-1: 0 1px 2px rgba(0,0,0,.12), 0 1px 3px rgba(0,0,0,.08);
+    --md-elev-2: 0 1px 2px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.08);
+    --md-elev-3: 0 4px 8px rgba(0,0,0,.10), 0 1px 3px rgba(0,0,0,.06);
+
+    /* --- shape scale (subset) --- */
+    --md-shape-xs: 4px;
+    --md-shape-s: 8px;
+    --md-shape-m: 12px;
+    --md-shape-l: 16px;
+
+    /* --- MD3 type scale (subset, adapted to a dense IDE) --- */
+    --md-font: "Roboto", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --md-font-mono: "Roboto Mono", "Cascadia Code", Consolas, Menlo, monospace;
+    --md-type-label-l: 500 14px/20px var(--md-font);
+    --md-type-label-m: 500 12px/16px var(--md-font);
+    --md-type-label-s: 500 11px/16px var(--md-font);
+    --md-type-body-m: 400 12.5px/18px var(--md-font);
+    --md-type-body-s: 400 11px/16px var(--md-font);
+    --md-type-title-s: 500 14px/20px var(--md-font);
+
+    /* --- MD3 state layers --- */
+    --md-hover: 8%;
+    --md-focus: 12%;
+    --md-pressed: 12%;
+    --md-dragged: 16%;
+
+    color-scheme: light;
+  }
+
+  html[data-theme="dark"] {
+    --md-bg: var(--md-neutral-10);
+    --md-surface: #121417;
+    --md-surface-1: #1a1c20;
+    --md-surface-2: #22252a;
+    --md-surface-3: #2a2d33;
+    --md-surface-variant: #464a52;
+    --md-on-bg: var(--md-neutral-90);
+    --md-on-surface: #e1e3e8;
+    --md-on-surface-var: #c3c7cf;
+    --md-primary: var(--md-primary-80);
+    --md-on-primary: var(--md-primary-10);
+    --md-primary-container: var(--md-primary-30);
+    --md-on-primary-container: var(--md-primary-90);
+    --md-secondary-container: #33415a;
+    --md-on-secondary-container: var(--md-secondary-90);
+    --md-error: var(--md-error-80);
+    --md-on-error-container: var(--md-error-90);
+    --md-outline: #8f949d;
+    --md-outline-variant: #464a52;
+    --md-inverse-surface: var(--md-neutral-96);
+    --md-inverse-on-surface: #2f3134;
+    --md-scrim: rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    font: 12px "Segoe UI", Tahoma, Verdana, sans-serif;
-    background: #f0f0f0; color: #222;
+    font: var(--md-type-body-m);
+    font-family: var(--md-font);
+    background: var(--md-bg);
+    color: var(--md-on-bg);
     display: flex; flex-direction: column; overflow: hidden;
+    transition: background .2s ease, color .2s ease;
   }
-  button { font: inherit; }
-  input, select, textarea { font: inherit; border: 1px solid #7a7a7a; padding: 4px 6px; background: #fff; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: #0078d4; }
+  button { font: inherit; font-family: inherit; }
 
-  /* ---- menu ---- */
-  #menubar { display: flex; background: #f0f0f0; border-bottom: 1px solid #d0d0d0; padding: 2px 4px; user-select: none; }
-  .menu-item { padding: 5px 10px; cursor: default; position: relative; }
-  .menu-item:hover, .menu-item.open { background: #cce4f6; }
-  .dropdown {
-    position: absolute; top: 100%; left: 0; min-width: 220px; background: #fff;
-    border: 1px solid #999; box-shadow: 3px 3px 8px rgba(0,0,0,.25); z-index: 200; padding: 3px 0;
+  /* ---------- MD3 filled text field ---------- */
+  input, select, textarea {
+    font: var(--md-type-body-m); font-family: inherit;
+    color: var(--md-on-surface);
+    border: 1px solid var(--md-outline); border-radius: var(--md-shape-xs);
+    padding: 6px 10px; background: var(--md-surface);
+    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
   }
-  .dropdown .di { padding: 5px 24px 5px 28px; cursor: default; white-space: nowrap; }
-  .dropdown .di:hover { background: #0078d4; color: #fff; }
-  .dropdown .di.disabled { color: #999; }
-  .dropdown .di.disabled:hover { background: none; color: #999; }
-  .dropdown .sep { height: 1px; background: #d9d9d9; margin: 3px 2px; }
+  input:hover, select:hover, textarea:hover { border-color: var(--md-on-surface); }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--md-primary);
+    box-shadow: inset 0 0 0 1px var(--md-primary);
+  }
+  textarea { font-family: var(--md-font-mono); }
+  ::placeholder { color: var(--md-on-surface-var); opacity: .7; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--md-outline-variant); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--md-outline); }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ---- top app bar ---- */
+  #menubar {
+    display: flex; align-items: center; gap: 2px;
+    background: var(--md-surface-2); padding: 4px 8px;
+    user-select: none; flex: none; position: relative; z-index: 150;
+  }
+  #app-title { font: var(--md-type-title-s); color: var(--md-on-surface); margin-right: 10px; letter-spacing: .3px; }
+  #app-title b { color: var(--md-primary); }
+  .menu-item { padding: 6px 12px; cursor: default; position: relative; border-radius: var(--md-shape-s); font: var(--md-type-label-m); color: var(--md-on-surface); }
+  .menu-item:hover, .menu-item.open { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
+  .menu-item.open { background: color-mix(in srgb, var(--md-primary) 15%, transparent); }
+
+  .dropdown {
+    position: absolute; top: calc(100% + 2px); left: 0; min-width: 230px;
+    background: var(--md-surface-2); border-radius: var(--md-shape-s);
+    box-shadow: var(--md-elev-2); z-index: 200; padding: 6px 0;
+  }
+  .dropdown .di { padding: 8px 20px 8px 16px; cursor: default; white-space: nowrap; border-radius: 0; font: var(--md-type-body-m); color: var(--md-on-surface); }
+  .dropdown .di:hover { background: color-mix(in srgb, var(--md-primary) 12%, transparent); }
+  .dropdown .di.disabled { color: var(--md-outline); }
+  .dropdown .di.disabled:hover { background: none; color: var(--md-outline); }
+  .dropdown .sep { height: 1px; background: var(--md-outline-variant); margin: 5px 8px; }
 
   /* ---- toolbar ---- */
-  #toolbar { display: flex; align-items: center; gap: 2px; padding: 5px 8px; background: #f7f7f7; border-bottom: 1px solid #d0d0d0; user-select: none; flex-wrap: wrap; }
-  .tbtn {
-    min-width: 54px; padding: 4px 6px; background: transparent; border: 1px solid transparent;
-    display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; color: #333;
+  #toolbar {
+    display: flex; align-items: center; gap: 4px; padding: 6px 10px;
+    background: var(--md-surface-1); user-select: none; flex-wrap: wrap; flex: none;
+    border-bottom: 1px solid var(--md-outline-variant);
   }
-  .tbtn svg { width: 24px; height: 24px; }
-  .tbtn span { font-size: 10px; }
-  .tbtn:hover:not(:disabled) { background: #e5f1fb; border-color: #aec9e8; }
-  .tbtn:active:not(:disabled) { background: #cce4f6; }
-  .tbtn:disabled { opacity: .35; cursor: default; }
-  .tsep { width: 1px; height: 34px; background: #d0d0d0; margin: 0 5px; }
-  #speed-wrap { display: flex; align-items: center; gap: 5px; padding: 0 6px; }
-  #speed-wrap input { width: 130px; }
-  #zoom-wrap { display: flex; align-items: center; gap: 3px; }
-  #zoom-wrap .zbtn { width: 26px; height: 26px; padding: 0; }
+  .tbtn {
+    min-width: 56px; padding: 6px 8px 4px; background: transparent; border: none;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer;
+    color: var(--md-on-surface-var); border-radius: var(--md-shape-s);
+    font: var(--md-type-label-s);
+    transition: background .15s ease, color .15s ease;
+  }
+  .tbtn svg { width: 22px; height: 22px; }
+  .tbtn span { font-size: 10.5px; letter-spacing: .2px; }
+  .tbtn:hover:not(:disabled) { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); color: var(--md-on-surface); }
+  .tbtn:active:not(:disabled) { background: color-mix(in srgb, var(--md-primary) 16%, transparent); }
+  .tbtn:disabled { opacity: .38; cursor: default; }
+  .tsep { width: 1px; height: 30px; background: var(--md-outline-variant); margin: 0 6px; }
+
+  #speed-wrap, #zoom-wrap { display: flex; align-items: center; gap: 8px; padding: 0 6px; color: var(--md-on-surface-var); }
+  #speed-wrap label, #zoom-wrap span { font: var(--md-type-label-s); }
+  #speed-wrap input[type="range"] {
+    -webkit-appearance: none; appearance: none; width: 120px; height: 4px; padding: 0; border: none; border-radius: 2px;
+    background: linear-gradient(to right, var(--md-primary) var(--fill, 17%), var(--md-surface-3) var(--fill, 17%));
+    cursor: pointer; box-shadow: none;
+  }
+  #speed-wrap input[type="range"]:hover { box-shadow: none; border: none; }
+  #speed-wrap input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--md-primary); border: 2px solid var(--md-surface-1); box-shadow: var(--md-elev-1);
+  }
+  #speed-wrap input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--md-primary); border: 2px solid var(--md-surface-1); box-shadow: var(--md-elev-1);
+  }
+  #zoom-wrap .zbtn { min-width: 32px; height: 32px; padding: 0 6px; font: var(--md-type-label-m); }
 
   /* ---- main ---- */
   #main { flex: 1; display: flex; min-height: 0; }
 
   #palette {
-    width: 190px; background: #f7f7f7; border-right: 1px solid #d0d0d0; overflow-y: auto;
-    padding: 6px; user-select: none;
+    width: 200px; background: var(--md-surface-1); overflow-y: auto;
+    padding: 10px; user-select: none; flex: none;
+    border-right: 1px solid var(--md-outline-variant);
   }
-  #palette h3 { margin: 4px 4px 8px; font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; }
+  #palette h3 {
+    margin: 6px 4px 10px; font: var(--md-type-label-s); color: var(--md-on-surface-var);
+    text-transform: uppercase; letter-spacing: .8px;
+  }
   .pal-item {
-    display: flex; align-items: center; gap: 8px; padding: 5px 6px; margin-bottom: 3px;
-    background: #fff; border: 1px solid #dcdcdc; cursor: grab;
+    display: flex; align-items: center; gap: 10px; padding: 7px 10px; margin-bottom: 4px;
+    background: var(--md-surface); border: 1px solid transparent; cursor: grab;
+    border-radius: var(--md-shape-s); color: var(--md-on-surface);
+    transition: background .15s ease, border-color .15s ease, transform .12s ease;
   }
-  .pal-item:hover { background: #e5f1fb; border-color: #aec9e8; }
+  .pal-item:hover {
+    background: var(--md-surface-2);
+    border-color: var(--md-outline-variant);
+  }
+  .pal-item:active { transform: scale(.98); }
   .pal-item svg { width: 56px; height: 26px; flex: none; }
-  .pal-item span { font-size: 11.5px; }
+  .pal-item span { font: var(--md-type-body-m); }
 
   #center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
-  #fntabs { display: flex; align-items: flex-end; background: #e8e8e8; border-bottom: 1px solid #b8b8b8; padding: 4px 6px 0; overflow-x: auto; user-select: none; }
-  .fntab {
-    padding: 5px 14px; background: #d6d6d6; border: 1px solid #b0b0b0; border-bottom: none;
-    margin-right: 2px; cursor: pointer; white-space: nowrap; border-radius: 3px 3px 0 0;
+  #fntabs {
+    display: flex; align-items: center; background: var(--md-surface-1);
+    border-bottom: 1px solid var(--md-outline-variant);
+    padding: 0 8px; overflow-x: auto; user-select: none; flex: none; min-height: 40px;
   }
-  .fntab.active { background: #fff; border-color: #999; font-weight: 600; }
-  .fntab.add { background: transparent; border-color: transparent; font-weight: 700; font-size: 14px; line-height: 1; }
+  .fntab {
+    padding: 10px 18px; background: transparent; border: none; margin: 6px 2px 0;
+    cursor: pointer; white-space: nowrap; border-radius: var(--md-shape-s) var(--md-shape-s) 0 0;
+    color: var(--md-on-surface-var); font: var(--md-type-label-m);
+    position: relative; transition: background .15s ease, color .15s ease;
+  }
+  .fntab:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); color: var(--md-on-surface); }
+  .fntab.active {
+    background: var(--md-surface); color: var(--md-primary); font-weight: 600;
+  }
+  .fntab.active::after {
+    content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 3px;
+    background: var(--md-primary); border-radius: 3px 3px 0 0;
+  }
+  .fntab.add { font-weight: 700; font-size: 16px; line-height: 1; color: var(--md-on-surface-var); }
+  .fntab.add:hover { color: var(--md-primary); background: color-mix(in srgb, var(--md-primary) 12%, transparent); }
 
-  #canvaswrap { flex: 1; overflow: auto; background: #fff; position: relative; }
+  #canvaswrap { flex: 1; overflow: auto; background: var(--md-surface); position: relative; }
   #svg { display: block; cursor: default; }
 
-  /* svg bits */
+  /* ---- svg bits ---- */
   .blk { cursor: pointer; }
-  .blk .shape { stroke: rgba(0,0,0,.28); stroke-width: 1; }
-  .blk.current .shape { stroke: #00e5ff; stroke-width: 3; animation: blkPulse .85s infinite; }
-  .blk.err .shape { stroke: #d40000; stroke-width: 3; }
-  @keyframes blkPulse { 50% { stroke: #ffffff; } }
-  .flowline { stroke: #555; stroke-width: 1.6; fill: none; }
-  .flowarrow { fill: #555; }
-  .lbl { font: 10.5px "Segoe UI"; fill: #666; }
-  .bt-text { font: 13px "Segoe UI", Tahoma; fill: #fff; }
-  .bt-text.comment { fill: #555; font-style: italic; }
-  .placeholder-box { fill: none; stroke: #b9b9b9; stroke-dasharray: 4 3; }
-  .placeholder-text { font: 11px "Segoe UI"; fill: #aaa; }
+  .blk .shape { stroke: rgba(0,0,0,.25); stroke-width: 1; }
+  html[data-theme="dark"] .blk .shape { stroke: rgba(0,0,0,.45); }
+  .blk.current .shape { stroke: var(--md-primary-40); stroke-width: 3; animation: blkPulse .85s infinite; }
+  html[data-theme="dark"] .blk.current .shape { stroke: var(--md-primary-80); }
+  .blk.err .shape { stroke: var(--md-error-40); stroke-width: 3; }
+  html[data-theme="dark"] .blk.err .shape { stroke: var(--md-error-80); }
+  @keyframes blkPulse {
+    0%, 100% { stroke-width: 3; }
+    50% { stroke: var(--md-tertiary-80); stroke-width: 4; }
+  }
+  .flowline { stroke: var(--md-on-surface-var); stroke-width: 1.6; fill: none; }
+  .flowarrow { fill: var(--md-on-surface-var); }
+  .lbl { font: 10.5px var(--md-font); fill: var(--md-on-surface-var); }
+  .bt-text { font: 13px var(--md-font); fill: #fff; }
+  .bt-text.comment { fill: var(--md-on-surface-var); font-style: italic; }
+  .placeholder-box { fill: none; stroke: var(--md-outline-variant); stroke-dasharray: 4 3; }
+  .placeholder-text { font: 11px var(--md-font); fill: var(--md-outline); }
   .dz { display: none; }
   svg.dragging .dz { display: inline; }
-  .dz rect { fill: rgba(76,175,80,.14); stroke: #4caf50; stroke-dasharray: 4 3; }
-  .dz.hot rect { fill: rgba(76,175,80,.45); stroke: #2e7d32; }
+  .dz rect { fill: color-mix(in srgb, #4caf50 14%, transparent); stroke: #4caf50; stroke-dasharray: 4 3; }
+  .dz.hot rect { fill: color-mix(in srgb, #4caf50 45%, transparent); stroke: #2e7d32; }
 
   /* ---- bottom panel ---- */
-  #bottom { height: 250px; display: flex; flex-direction: column; border-top: 1px solid #b8b8b8; background: #f7f7f7; min-height: 60px; }
-  #bottomtabs { display: flex; align-items: center; gap: 0; background: #e8e8e8; border-bottom: 1px solid #b8b8b8; padding: 3px 6px; }
-  .btab { padding: 4px 14px; border: none; background: transparent; cursor: pointer; border-radius: 3px 3px 0 0; }
-  .btab.active { background: #fff; font-weight: 600; box-shadow: inset 0 0 0 1px #ccc; }
-  .btab:hover:not(.active) { background: #dcdcdc; }
+  #bottom {
+    height: 250px; display: flex; flex-direction: column;
+    background: var(--md-surface-1); min-height: 60px; flex: none;
+    border-top: 1px solid var(--md-outline-variant);
+  }
+  #bottomtabs {
+    display: flex; align-items: center; gap: 0; background: var(--md-surface-2);
+    padding: 4px 8px 0; flex: none;
+  }
+  .btab {
+    padding: 8px 18px; border: none; background: transparent; cursor: pointer;
+    border-radius: var(--md-shape-s) var(--md-shape-s) 0 0;
+    color: var(--md-on-surface-var); font: var(--md-type-label-m);
+    transition: background .15s ease, color .15s ease;
+  }
+  .btab:hover:not(.active) { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); color: var(--md-on-surface); }
+  .btab.active { background: var(--md-surface); color: var(--md-primary); font-weight: 600; }
   #bottomtabs .grow { flex: 1; }
-  #bottomtabs .mini { padding: 3px 10px; }
+  #bottomtabs .mini { padding: 5px 12px; }
   .bpanel { flex: 1; display: none; min-height: 0; }
   .bpanel.active { display: flex; }
-  #console { flex: 1; overflow-y: auto; background: #fff; padding: 8px 10px; font: 12.5px Consolas, Menlo, monospace; white-space: pre-wrap; }
-  #console .err { color: #c62828; }
-  #console .in { color: #888; }
-  #console .sys { color: #569; }
-  #panel-vars { overflow: auto; }
-  #vars-table { width: 100%; border-collapse: collapse; background: #fff; }
-  #vars-table th { text-align: left; background: #efefef; border-bottom: 1px solid #ccc; padding: 4px 10px; font-weight: 600; }
-  #vars-table td { padding: 3px 10px; border-bottom: 1px solid #f2f2f2; font: 12.5px Consolas, Menlo, monospace; }
-  #vars-table .fnrow td { background: #e8eef7; font-weight: 600; font-family: "Segoe UI"; }
-  #vars-table td.changed { color: #0b7a1e; font-weight: 700; }
-  #vars-hint { padding: 12px; color: #888; }
-  #turtle-wrap { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; background: #fff; }
+  #console {
+    flex: 1; overflow-y: auto; background: var(--md-surface); padding: 10px 12px;
+    font: 12.5px var(--md-font-mono); white-space: pre-wrap; color: var(--md-on-surface);
+  }
+  #console .err { color: var(--md-error); }
+  #console .in { color: var(--md-on-surface-var); }
+  #console .sys { color: var(--md-primary); opacity: .85; }
+  #panel-vars { overflow: auto; background: var(--md-surface); }
+  #vars-table { width: 100%; border-collapse: collapse; background: var(--md-surface); }
+  #vars-table th {
+    text-align: left; background: var(--md-surface-2); border-bottom: 1px solid var(--md-outline-variant);
+    padding: 8px 12px; font: var(--md-type-label-s); color: var(--md-on-surface-var);
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  #vars-table td { padding: 5px 12px; border-bottom: 1px solid color-mix(in srgb, var(--md-outline-variant) 45%, transparent); font: 12.5px var(--md-font-mono); color: var(--md-on-surface); }
+  #vars-table .fnrow td { background: var(--md-primary-container); font: var(--md-type-label-m); color: var(--md-on-primary-container); font-family: var(--md-font); }
+  #vars-table td.changed { color: var(--md-primary); font-weight: 700; }
+  #vars-hint { padding: 14px; color: var(--md-on-surface-var); font: var(--md-type-body-m); }
+  #turtle-wrap { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; background: var(--md-surface); }
   #turtle-path, #turtle-mark { position: absolute; }
-  #turtle-hud { position: absolute; top: 6px; left: 8px; font: 11px Consolas, monospace; color: #999; }
+  #turtle-hud { position: absolute; top: 8px; left: 10px; font: 11px var(--md-font-mono); color: var(--md-on-surface-var); }
 
   /* ---- status bar ---- */
-  #statusbar { display: flex; justify-content: space-between; padding: 4px 10px; background: #e8e8e8; border-top: 1px solid #c8c8c8; color: #555; user-select: none; }
-  #statusbar.err { color: #c62828; }
+  #statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 12px; background: var(--md-surface-2); color: var(--md-on-surface-var);
+    user-select: none; flex: none; font: var(--md-type-body-s);
+  }
+  #statusbar.err { color: var(--md-error); }
 
   /* ---- modals ---- */
   #modal-root { position: fixed; inset: 0; z-index: 500; pointer-events: none; }
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.28); display: flex; align-items: center; justify-content: center; pointer-events: auto; }
-  .dialog {
-    background: #f0f0f0; border: 1px solid #7a7a7a; box-shadow: 4px 4px 14px rgba(0,0,0,.35);
-    min-width: 380px; max-width: 640px; max-height: 85vh; display: flex; flex-direction: column;
+  .overlay {
+    position: fixed; inset: 0; background: var(--md-scrim);
+    display: flex; align-items: center; justify-content: center; pointer-events: auto;
   }
-  .dialog-title { background: linear-gradient(#fdfdfd, #eaeaea); padding: 7px 12px; font-weight: 600; border-bottom: 1px solid #cfcfcf; display: flex; justify-content: space-between; }
-  .dialog-title .x { cursor: pointer; padding: 0 6px; }
-  .dialog-body { padding: 14px; overflow: auto; }
-  .dialog-foot { padding: 10px 14px; border-top: 1px solid #d5d5d5; display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
-  .formrow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  .formrow label { width: 110px; text-align: right; color: #444; flex: none; }
+  .dialog {
+    background: var(--md-surface-2); border-radius: var(--md-shape-l);
+    box-shadow: var(--md-elev-3);
+    min-width: 400px; max-width: 680px; max-height: 85vh; display: flex; flex-direction: column;
+  }
+  .dialog-title {
+    background: transparent; padding: 20px 24px 4px; font: 500 16px/24px var(--md-font);
+    color: var(--md-on-surface); display: flex; justify-content: space-between;
+    -webkit-user-select: none; user-select: none;
+  }
+  .dialog-title .x {
+    cursor: pointer; padding: 2px 8px; border-radius: 50%; color: var(--md-on-surface-var);
+    transition: background .15s ease;
+  }
+  .dialog-title .x:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); color: var(--md-on-surface); }
+  .dialog-body { padding: 12px 24px 4px; overflow: auto; color: var(--md-on-surface); }
+  .dialog-foot {
+    padding: 16px 24px 20px; display: flex; justify-content: flex-end; gap: 8px; align-items: center;
+  }
+  .formrow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .formrow label { width: 110px; text-align: right; color: var(--md-on-surface-var); flex: none; font: var(--md-type-label-m); }
   .formrow .fill { flex: 1; }
-  .rows-table { width: 100%; border-collapse: collapse; margin: 4px 0 10px; }
-  .rows-table td { padding: 2px 3px; }
+  .rows-table { width: 100%; border-collapse: collapse; margin: 4px 0 12px; }
+  .rows-table td { padding: 3px 4px; }
   .rows-table input, .rows-table select { width: 100%; }
-  .rows-table .delrow { width: 26px; }
-  .btn { min-width: 88px; padding: 6px 12px; border: 1px solid #adadad; background: linear-gradient(#fdfdfd, #e9e9e9); cursor: pointer; }
-  .btn:hover { background: #e5f1fb; border-color: #0078d4; }
-  .btn:active { background: #cce4f6; }
-  .btn.primary { font-weight: 600; }
-  .btn.small { min-width: 0; padding: 3px 9px; }
-  .modalerr { color: #c62828; margin-right: auto; font-weight: 600; }
-  .hint { color: #888; font-size: 11px; }
-  #codegen-text { width: 640px; height: 380px; font: 12px Consolas, Menlo, monospace; white-space: pre; }
-  .helpdoc { max-width: 620px; line-height: 1.55; }
-  .helpdoc h4 { margin: 14px 0 4px; }
-  .helpdoc code { background: #fff; border: 1px solid #ddd; padding: 0 4px; font: 11.5px Consolas, monospace; }
+  .rows-table .delrow { width: 28px; }
+
+  /* ---- MD3 buttons ---- */
+  .btn {
+    min-width: 88px; padding: 8px 18px; border: none; border-radius: 100px;
+    background: transparent; cursor: pointer; color: var(--md-primary);
+    font: var(--md-type-label-m); letter-spacing: .3px;
+    transition: background .15s ease, box-shadow .15s ease;
+    position: relative;
+  }
+  .btn:hover { background: color-mix(in srgb, var(--md-primary) 10%, transparent); }
+  .btn:active { background: color-mix(in srgb, var(--md-primary) 16%, transparent); }
+  .btn:disabled { opacity: .38; cursor: default; }
+  .btn.primary {
+    background: var(--md-primary); color: var(--md-on-primary);
+    box-shadow: var(--md-elev-1);
+  }
+  .btn.primary:hover { box-shadow: var(--md-elev-2); background: color-mix(in srgb, var(--md-primary) 92%, #fff); }
+  .btn.small { min-width: 0; padding: 4px 12px; }
+
+  .modalerr { color: var(--md-error); margin-right: auto; font: var(--md-type-label-m); }
+  .hint { color: var(--md-on-surface-var); font: var(--md-type-body-s); }
+  #codegen-text {
+    width: 640px; height: 380px; font: 12px var(--md-font-mono); white-space: pre;
+    background: var(--md-surface); color: var(--md-on-surface);
+  }
+  .helpdoc { max-width: 620px; line-height: 1.6; font: var(--md-type-body-m); color: var(--md-on-surface); }
+  .helpdoc h4 { margin: 14px 0 4px; font: var(--md-type-title-s); }
+  .helpdoc code {
+    background: var(--md-surface-variant); border: none; padding: 1px 5px;
+    border-radius: var(--md-shape-xs); font: 11.5px var(--md-font-mono);
+    color: var(--md-on-surface);
+  }
   .helpdoc ul { margin: 4px 0; padding-left: 22px; }
 
-  /* context menu */
-  #ctxmenu { position: fixed; z-index: 600; background: #fff; border: 1px solid #999; box-shadow: 3px 3px 8px rgba(0,0,0,.25); padding: 3px 0; min-width: 170px; }
+  /* ---- context menu ---- */
+  #ctxmenu {
+    position: fixed; z-index: 600; background: var(--md-surface-2);
+    border-radius: var(--md-shape-s); box-shadow: var(--md-elev-2); padding: 6px 0; min-width: 180px;
+  }
+  #ctxmenu .di { /* shares dropdown item styles */ }
 </style>
 </head>
 <body>
@@ -167,22 +417,22 @@
       <div id="fntabs"></div>
       <div id="canvaswrap"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
     </div>
-    <div id="bottom">
-      <div id="bottomtabs">
-        <button class="btab active" data-p="console">Console</button>
-        <button class="btab" data-p="vars">Variabili</button>
-        <button class="btab" data-p="turtle">Tartaruga</button>
-        <span class="grow"></span>
-        <button class="btn small mini" id="console-clear">Pulisci</button>
-      </div>
-      <div id="panel-console" class="bpanel active"><div id="console"></div></div>
-      <div id="panel-vars" class="bpanel"><div id="vars-hint">Le variabili compaiono durante l'esecuzione.</div></div>
-      <div id="panel-turtle" class="bpanel">
-        <div id="turtle-wrap">
-          <canvas id="turtle-path" width="420" height="420"></canvas>
-          <canvas id="turtle-mark" width="420" height="420"></canvas>
-          <div id="turtle-hud"></div>
-        </div>
+  </div>
+  <div id="bottom">
+    <div id="bottomtabs">
+      <button class="btab active" data-p="console">Console</button>
+      <button class="btab" data-p="vars">Variabili</button>
+      <button class="btab" data-p="turtle">Tartaruga</button>
+      <span class="grow"></span>
+      <button class="btn small mini" id="console-clear">Pulisci</button>
+    </div>
+    <div id="panel-console" class="bpanel active"><div id="console"></div></div>
+    <div id="panel-vars" class="bpanel"><div id="vars-hint">Le variabili compaiono durante l'esecuzione.</div></div>
+    <div id="panel-turtle" class="bpanel">
+      <div id="turtle-wrap">
+        <canvas id="turtle-path" width="420" height="420"></canvas>
+        <canvas id="turtle-mark" width="420" height="420"></canvas>
+        <div id="turtle-hud"></div>
       </div>
     </div>
   </div>
@@ -1323,8 +1573,9 @@ function drawBlock(b, F, top) {
     }
     case "comment": {
       drawShapeRect(g, b, x, top, w, L.H, "#fcfcfc", 8);
-      g.firstChild.setAttribute("stroke", "#aaa");
-      g.firstChild.setAttribute("stroke-dasharray", "5 4");
+      var cRect = g.querySelector("rect.shape");
+      cRect.setAttribute("stroke", "#aaa");
+      cRect.setAttribute("stroke-dasharray", "5 4");
       drawTextLine(g, blockText(b), x + 16, top + L.H / 2 + 4.5, w - 30, "comment");
       break;
     }
@@ -2176,7 +2427,10 @@ function buildToolbar() {
   sw.querySelector("#speed").addEventListener("input", function () {
     RT.speed = +this.value;
     document.getElementById("speed-val").textContent = this.value === "0" ? "max" : this.value + "ms";
+    this.style.setProperty("--fill", (100 - (+this.value / 2000 * 100)) + "%");
   });
+  var sp0 = sw.querySelector("#speed");
+  sp0.style.setProperty("--fill", (100 - (+sp0.value / 2000 * 100)) + "%");
   sep();
   var zw = document.createElement("div");
   zw.id = "zoom-wrap";
@@ -2214,15 +2468,15 @@ function doStopBtn() {
 }
 
 var ICONS = {
-  new: '<svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v15H6z" fill="#fff" stroke="#7a7a7a"/><path d="M14 2v5h5" fill="none" stroke="#7a7a7a"/><path d="M9 13h7M9 16h7" stroke="#0078d4"/></svg>',
-  open: '<svg viewBox="0 0 24 24"><path d="M2 6h7l2 2h11v11H2z" fill="#f6c445" stroke="#a07d1e"/><path d="M4 10h16" stroke="#fff"/></svg>',
-  save: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="#2d6fd2" stroke="#1a4a9e"/><rect x="7" y="3" width="10" height="8" fill="#fff"/><path d="M9 4h2v5H9z" fill="#2d6fd2"/><rect x="6" y="13" width="12" height="7" fill="#fff"/></svg>',
-  run: '<svg viewBox="0 0 24 24"><path d="M6 3l15 9-15 9z" fill="#1e9e34"/></svg>',
-  pause: '<svg viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" fill="#e08a00"/><rect x="14" y="4" width="5" height="16" fill="#e08a00"/></svg>',
-  step: '<svg viewBox="0 0 24 24"><path d="M3 4l11 8-11 8z" fill="#2d6fd2"/><rect x="16" y="4" width="4" height="16" fill="#2d6fd2"/></svg>',
-  stop: '<svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" fill="#c62828"/></svg>',
-  code: '<svg viewBox="0 0 24 24"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6" fill="none" stroke="#555" stroke-width="2.4"/></svg>',
-  png: '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" fill="#fff" stroke="#7a7a7a"/><path d="M4 17l5-6 4 4 3-3 4 5z" fill="#1e9e34"/><circle cx="8" cy="8" r="2" fill="#f6c445"/></svg>'
+  new: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M13 2v7h7"/></svg>',
+  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h3l2 3h7a2 2 0 0 1 2 2v9.5"/><path d="M2 19.5V7a2 2 0 0 1 2-2h2l2 3h6a2 2 0 0 1 2 2v7.5l-2 3H4z" opacity=".5"/></svg>',
+  save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>',
+  run: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><path d="M6 4l14 8-14 8z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg>',
+  step: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><path d="M3 4l11 8-11 8z"/><rect x="16" y="4" width="5" height="16" rx="1"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>',
+  code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>',
+  png: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="2"/><path d="M2.5 16l6-6 4.5 4.5 3-3 5.5 5.5" /><circle cx="8" cy="8" r="1.8"/></svg>'
 };
 
 /* ---- menu ---- */
@@ -2247,6 +2501,11 @@ var MENUS = [
     { label: "Passo  (F10)", action: function () { doStepBtn(); } },
     { label: "Stop", action: function () { doStopBtn(); } }
   ]},
+  { label: "Visualizza", items: [
+    { label: "Tema: Automatico", action: function () { setThemePref("auto"); } },
+    { label: "Tema: Chiaro", action: function () { setThemePref("light"); } },
+    { label: "Tema: Scuro", action: function () { setThemePref("dark"); } }
+  ]},
   { label: "Aiuto", items: [
     { label: "Guida rapida", action: function () { openHelpModal(); } },
     { label: "Informazioni su FlowWeb", action: function () { openAboutModal(); } }
@@ -2255,13 +2514,19 @@ var MENUS = [
 function buildMenubar() {
   var bar = document.getElementById("menubar");
   bar.innerHTML = "";
+  var logo = document.createElement("div");
+  logo.id = "app-title";
+  logo.innerHTML = "<b>Flow</b>Web";
+  bar.appendChild(logo);
   MENUS.forEach(function (m) {
     var it = document.createElement("div");
     it.className = "menu-item";
     it.textContent = m.label;
     var dd = null;
-    function open() {
-    closeAllMenus();
+    var openedByHover = false;
+    function open(byHover) {
+      closeAllMenus();
+      openedByHover = !!byHover;
       it.classList.add("open");
       dd = document.createElement("div");
       dd.className = "dropdown";
@@ -2276,11 +2541,15 @@ function buildMenubar() {
       it.appendChild(dd);
     }
     it.onclick = function () {
-      if (it.classList.contains("open")) closeAllMenus();
-      else open();
+      if (it.classList.contains("open")) {
+        // apostrophic close only on a deliberate second click (not when it
+        // opened because the mouse hovered over it while another was open)
+        if (openedByHover) { openedByHover = false; return; }
+        closeAllMenus();
+      } else open(false);
     };
     it.onmouseenter = function () {
-      if (document.querySelector(".menu-item.open") && !it.classList.contains("open")) open();
+      if (document.querySelector(".menu-item.open") && !it.classList.contains("open")) open(true);
     };
     bar.appendChild(it);
   });
@@ -2345,6 +2614,30 @@ function doOpen() {
 function saveLocal() {
   try { localStorage.setItem("flowweb.autosave", JSON.stringify(PROGRAM)); } catch (e) {}
 }
+
+/* ---- theme (Material Design 3: auto / light / dark) ---- */
+var THEME_PREF = "auto";
+function setThemePref(pref) {
+  THEME_PREF = pref;
+  try { localStorage.setItem("flowweb.theme", pref); } catch (e) {}
+  applyTheme();
+  setStatus("Tema: " + ({ auto: "automatico", light: "chiaro", dark: "scuro" }[pref] || pref));
+}
+function applyTheme() {
+  var dark = THEME_PREF === "dark" ||
+    (THEME_PREF === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+}
+function initTheme() {
+  try { THEME_PREF = localStorage.getItem("flowweb.theme") || "auto"; } catch (e) {}
+  applyTheme();
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    var onChange = function () { if (THEME_PREF === "auto") applyTheme(); };
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  }
+}
 function loadLocal() {
   try {
     var s = localStorage.getItem("flowweb.autosave");
@@ -2362,6 +2655,10 @@ function exportPNG() {
   clone.querySelectorAll(".dz").forEach(function (x) { x.remove(); });
   clone.querySelectorAll(".blk.current, .blk.err").forEach(function (x) { x.classList.remove("current"); x.classList.remove("err"); });
   clone.setAttribute("xmlns", NS);
+  /* embed the stylesheet so exported blocks keep colors, strokes and fonts */
+  var style = document.createElementNS(NS, "style");
+  style.textContent = Array.prototype.slice.call(document.styleSheets[0].cssRules).map(function (r) { return r.cssText; }).join("\n");
+  clone.insertBefore(style, clone.firstChild);
   var w = DRAW.maxX - DRAW.minX, h = DRAW.maxY - DRAW.minY;
   clone.setAttribute("width", w); clone.setAttribute("height", h);
   var data = new XMLSerializer().serializeToString(clone);
@@ -2892,6 +3189,7 @@ function openAboutModal() {
 
 /* ============================================================== BOOT */
 function boot() {
+  initTheme();
   buildMenubar();
   buildToolbar();
   buildPalette();
