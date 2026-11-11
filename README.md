@@ -2,6 +2,15 @@
 
 A browser-based flowchart IDE inspired by [Flowgorithm](http://flowgorithm.org), packaged as a **single self-contained HTML file**. No server, no install, no dependencies.
 
+![FlowWeb, light theme](docs/assets/screenshot-light.png)
+
+<details>
+<summary>Dark theme</summary>
+
+![FlowWeb, dark theme](docs/assets/screenshot-dark.png)
+
+</details>
+
 ## What it does
 
 FlowWeb lets you design, run, debug and export algorithms as flowcharts — the same workflow Flowgorithm popularized for teaching programming:
@@ -10,6 +19,7 @@ FlowWeb lets you design, run, debug and export algorithms as flowcharts — the 
 - **Interpreter with debugging** — Run (F5), Pause, Step-over (F10), Stop; the block currently executing is highlighted live, a Variables panel watches values as they change, execution speed is adjustable, input is asked through a modal dialog, and runtime errors highlight the offending block.
 - **Code generation** — translate the flowchart into Python, JavaScript, C or Java (all four backends are tested: generated code compiles and runs). Export the diagram itself as PNG. Save/load programs as JSON; auto-saved to localStorage.
 - **Turtle graphics** — TurtleMove, TurtleTurn, TurtleGoTo, pen up/down, colors, home, clear, show/hide.
+- **Material Design 3 theming** — the interface follows Material Design 3 (color roles, elevation, shape, type scale) with light and dark themes, selectable under *View → Theme* (light / dark / auto).
 
 ## Getting started
 
