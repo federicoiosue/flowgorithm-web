@@ -14,10 +14,6 @@ function buildToolbar() {
   }
   function sep() { var s = document.createElement("div"); s.className = "tsep"; host.appendChild(s); }
 
-  btn("new", t("tb.tip.new"), ICONS.new, t("tb.new"), function () { doNew(); });
-  btn("open", t("tb.tip.open"), ICONS.open, t("tb.open"), function () { doOpen(); });
-  btn("save", t("tb.tip.save"), ICONS.save, t("tb.save"), function () { doSave(); });
-  sep();
   btn("run", t("tb.tip.run"), ICONS.run, t("tb.run"), function () { doRunBtn(); });
   btn("pause", t("tb.tip.pause"), ICONS.pause, t("tb.pause"), function () { doPauseBtn(); });
   btn("step", t("tb.tip.step"), ICONS.step, t("tb.step"), function () { doStepBtn(); });
