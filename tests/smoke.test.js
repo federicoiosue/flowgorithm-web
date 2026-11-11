@@ -22,11 +22,18 @@ const vm = require("vm");
 
 const ROOT = path.join(__dirname, "..");
 
+/* ---------- pick which HTML to load (default: index.html) ---------- */
+const argv = process.argv.slice(2);
+const htmlFlagIx = argv.indexOf("--html");
+const htmlPath = htmlFlagIx >= 0
+  ? path.resolve(argv[htmlFlagIx + 1])
+  : (process.env.FLOWWEB_HTML ? path.resolve(process.env.FLOWWEB_HTML) : path.join(ROOT, "index.html"));
+
 /* ---------- extract the inline app script ---------- */
-const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const html = fs.readFileSync(htmlPath, "utf8");
 const m = html.match(/<script>([\s\S]*)<\/script>/);
 if (!m) {
-  console.error("FATAL: cannot extract inline <script> from index.html");
+  console.error("FATAL: cannot extract inline <script> from " + htmlPath);
   process.exit(1);
 }
 

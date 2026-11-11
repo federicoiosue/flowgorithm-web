@@ -41,6 +41,33 @@ Try **File → Examples** for ready-made demo programs (number guessing game, re
 - Comparisons use `=`, `!=`, `<`, `<=`, `>`, `>=`; logical operators are `and`, `or`, `not`.
 - Built-in functions: `ToInteger ToReal ToString ToChar ToASCII Length Size Char Abs Ceiling Floor Round Sqrt Sin Cos Tan Log Power Random Min Max`.
 
+## Mutation testing
+
+`tests/mutation.test.js` proves the smoke suite actually *asserts* the behaviors it exercises, by running the suite against intentionally-broken copies of the app and failing if any break slips past undetected.
+
+The app under test is the inline `<script>` block inside `index.html`, so off-the-shelf runners (Stryker, PIT, …) cannot consume it. The runner does it manually:
+
+1. Reads `index.html` once.
+2. For each entry in the `MUTANTS` table applies one localized string replacement. Each `find` snippet must occur **exactly once and must match literally**, otherwise the mutant is reported as `untestable` (a hard failure) so we never silently no-op a misspelled pattern.
+3. Writes the mutated doc to `.mutants/<id>.html` (the dir is wiped at the top of every run and is git-ignored).
+4. Runs `node tests/smoke.test.js --html <mutant>` synchronously. `tests/smoke.test.js` accepts `--html <path>` (or `FLOWWEB_HTML=<path>`) and defaults to `index.html`.
+5. Prints one report line per mutant and a final summary, and exits non-zero if anything survived or was untestable.
+
+### Run
+
+```bash
+node tests/smoke.test.js      # 27 assertions against index.html
+node tests/mutation.test.js   # 11 mutants × smoke suite
+```
+
+### Reading the output
+
+- **KILLED** — the smoke suite failed against the mutated HTML. This is the desired outcome: the tests notice the regression.
+- **SURVIVED** — the smoke suite still passed. The tests don't cover the mutated behavior; the runner exits non-zero so CI fails.
+- **UNTESTABLE** — the `find` snippet was missing or non-unique in `index.html`. The mutation pattern is stale; the runner exits non-zero.
+
+Each line includes the smoke assertion that killed the mutant (or explains the survivor). A clean run ends with `N killed, 0 survived, 0 untestable`.
+
 ## Legal notes
 
 This is an **original, independent implementation**: no Flowgorithm code was decompiled or reused. The interface is merely inspired by Flowgorithm's look & feel (Flowgorithm is a trademark of its respective owners). The `.flowweb.json` file format is specific to this project.
