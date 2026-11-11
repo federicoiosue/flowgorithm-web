@@ -183,6 +183,32 @@ function check(name, cond, extra) {
   const jv = T.gen("java");
   check("codegen: Java wraps in Program class", jv.includes("public class Program"));
 
+
+  /* 6. i18n */
+  vm.runInContext(`
+    globalThis.__i18nTest = {
+      lang: () => I18N_CUR,
+      set(l) { I18N_CUR = l; },
+      keys() { return Object.keys(I18N.it).length + "/" + Object.keys(I18N.en).length; },
+      missing() {
+        const missing = [];
+        for (const k of Object.keys(I18N.it)) if (!I18N.en[k]) missing.push(k);
+        for (const k of Object.keys(I18N.en)) if (!I18N.it[k]) missing.push("en:" + k);
+        return missing;
+      },
+      sample(k) { return t(k); },
+    };
+  `, ctx);
+  const I18 = vm.runInContext("globalThis.__i18nTest", ctx);
+  const missing = I18.missing();
+  check("i18n: it/en dictionaries cover the same keys", missing.length === 0, missing.slice(0,6).join(", "));
+  I18.set("en");
+  check("i18n: english toolbar label", I18.sample("tb.run") === "Run");
+  check("i18n: english palette header", I18.sample("palette.header").indexOf("Blocks") === 0);
+  I18.set("it");
+  check("i18n: italian toolbar label", I18.sample("tb.run") === "Esegui");
+  check("i18n: unknown key returns placeholder", I18.sample("no.such.key").indexOf("no.such.key") >= 0);
+
   console.log("\n" + passed + " passed, " + failed + " failed");
   process.exit(failed ? 1 : 0);
 })().catch((e) => {

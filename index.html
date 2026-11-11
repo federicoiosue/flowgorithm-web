@@ -206,6 +206,23 @@
   }
   #zoom-wrap .zbtn { min-width: 32px; height: 32px; padding: 0 6px; font: var(--md-type-label-m); }
 
+
+  /* ---- language selector in the top app bar ---- */
+  #menubar > .grow { flex: 1; }
+  #lang-btn {
+    border: none; background: transparent; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    font: var(--md-type-label-m); color: var(--md-on-surface);
+    padding: 6px 10px; border-radius: var(--md-shape-s);
+  }
+  #lang-btn:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
+  #lang-btn .lang-flag { font-size: 18px; line-height: 1; }
+  #lang-btn .lang-code { letter-spacing: .5px; font-weight: 600; }
+  .lang-flag { font-size: 16px; line-height: 1; vertical-align: middle; }
+  #langmenu { min-width: 200px; }
+  #langmenu .di.selected { background: color-mix(in srgb, var(--md-primary) 16%, transparent); color: var(--md-primary); font-weight: 600; }
+  #langmenu .di:hover { background: color-mix(in srgb, var(--md-primary) 12%, transparent); }
+
   /* ---- main ---- */
   #main { flex: 1; display: flex; min-height: 0; }
 
@@ -425,10 +442,10 @@
       <button class="btab" data-p="vars">Variabili</button>
       <button class="btab" data-p="turtle">Tartaruga</button>
       <span class="grow"></span>
-      <button class="btn small mini" id="console-clear">Pulisci</button>
+      <button class="btn small mini" id="console-clear"></button>
     </div>
     <div id="panel-console" class="bpanel active"><div id="console"></div></div>
-    <div id="panel-vars" class="bpanel"><div id="vars-hint">Le variabili compaiono durante l'esecuzione.</div></div>
+    <div id="panel-vars" class="bpanel"><div id="vars-hint"></div></div>
     <div id="panel-turtle" class="bpanel">
       <div id="turtle-wrap">
         <canvas id="turtle-path" width="420" height="420"></canvas>
@@ -447,9 +464,228 @@
    Editor drag&drop + interprete con debug + export codice + turtle.
    ===================================================================== */
 
+/* ---------------------------------------------------------------- i18n */
+var I18N_LANGS = ["it", "en"];
+var I18N_CUR = "it";
+var I18N_STORAGE_KEY = "flowweb.lang";
+
+var I18N = {
+  it: {
+    // menu
+    "menu.file": "File", "menu.edit": "Programma", "menu.run": "Esegui",
+    "menu.view": "Visualizza", "menu.help": "Aiuto",
+    "menu.newProgram": "Nuovo programma", "menu.openProgram": "Apri file…",
+    "menu.saveProgram": "Salva su file…", "menu.exportPng": "Esporta diagramma (PNG)…",
+    "menu.exportCode": "Esporta codice…", "menu.examples": "Esempi ▸",
+    "menu.newFunction": "Nuova funzione…", "menu.editFunction": "Modifica funzione corrente…",
+    "menu.runGo": "Esegui  (F5)", "menu.runPause": "Pausa / Riprendi",
+    "menu.runStep": "Passo  (F10)", "menu.runStop": "Stop",
+    "menu.themeAuto": "Tema: Automatico", "menu.themeLight": "Tema: Chiaro", "menu.themeDark": "Tema: Scuro",
+    "menu.helpQuick": "Guida rapida", "menu.helpAbout": "Informazioni su FlowWeb",
+    "lang.label": "Lingua",
+    // toolbar
+    "tb.new": "Nuovo", "tb.open": "Apri", "tb.save": "Salva",
+    "tb.run": "Esegui", "tb.pause": "Pausa", "tb.step": "Passo", "tb.stop": "Stop",
+    "tb.code": "Codice", "tb.png": "PNG",
+    "tb.tip.new": "Nuovo programma", "tb.tip.open": "Apri file .json", "tb.tip.save": "Salva file .json",
+    "tb.tip.run": "Esegui (F5)", "tb.tip.pause": "Pausa / Riprendi", "tb.tip.step": "Passo (F10)", "tb.tip.stop": "Stop",
+    "tb.tip.code": "Esporta codice", "tb.tip.png": "Esporta diagramma PNG",
+    "tb.speed": "Velocità", "tb.zoomOut": "Riduci", "tb.zoomIn": "Ingrandisci",
+    // palette
+    "palette.header": "Blocchi — trascina sul diagramma",
+    // function tabs
+    "fn.addHint": "Nuova funzione", "fn.editSignature": "Modifica firma", "fn.delete": "Elimina funzione",
+    // bottom tabs
+    "tab.console": "Console", "tab.vars": "Variabili", "tab.turtle": "Tartaruga",
+    "console.clear": "Pulisci",
+    "vars.hint": "Le variabili compaiono durante l'esecuzione.",
+    // statusbar
+    "status.ready": "Pronto.", "status.inExec": "Esecuzione", "status.paused": "(in pausa)", "status.stepping": "(passo a passo)",
+    "status.step": "passo", "status.fn": "Funzione", "status.blocks": "Blocchi", "status.zoom": "Zoom",
+    "status.pausedLbl": "In pausa.", "status.resumed": "In esecuzione.",
+    "status.done": "Fatto", "status.stopped": "Interrotto.", "status.newProgram": "Nuovo programma.",
+    "status.exampleLoaded": "Esempio caricato: ", "status.programLoaded": "Programma caricato: ",
+    "status.theme": "Tema",
+    // block modal titles and field labels
+    "dlg.title.decl": "Dichiarazione variabili", "dlg.title.assign": "Assegnazione",
+    "dlg.title.input": "Input", "dlg.title.output": "Output", "dlg.title.if": "If / Else",
+    "dlg.title.while": "While", "dlg.title.for": "For", "dlg.title.do": "Do While",
+    "dlg.title.call": "Chiamata funzione", "dlg.title.return": "Return", "dlg.title.comment": "Commento",
+    "dlg.title.newFn": "Nuova funzione", "dlg.title.editFn": "Modifica funzione",
+    "dlg.ok": "OK", "dlg.cancel": "Annulla", "dlg.close": "Chiudi",
+    "dlg.confirm.title": "Conferma",
+    "dlg.expr": "Espressione", "dlg.cond": "Condizione", "dlg.var": "Variabile",
+    "dlg.idx": "Indice", "dlg.prompt": "Prompt", "dlg.valueOf": "Valore",
+    "dlg.nl": "Vai a capo dopo l'output", "dlg.text": "Testo",
+    "dlg.step": "Passo", "dlg.dir": "Direzione",
+    "dlg.dirup": "crescente (to)", "dlg.dirdown": "decrescente (downto)",
+    "dlg.fn": "Funzione", "dlg.args": "Argomenti",
+    "dlg.fnName": "Nome", "dlg.params": "Parametri", "dlg.returns": "Restituisce",
+    "dlg.returns.none": "nessuno (void)",
+    "dlg.addvar": "+ variabile", "dlg.addparam": "+ parametro",
+    "dlg.retNotice": "Questa funzione non restituisce un valore.",
+    "dlg.chooseVar": "— scegli variabile —", "dlg.chooseFn": "— scegli funzione —",
+    "dlg.varHint": "es. 0", "dlg.exprHint": "es. x + 1",
+    "dlg.promptHint": "Domanda mostrata all'utente",
+    "dlg.exprOutHint": "es. \"Ciao\" oppure x * 2", "dlg.condHint": "es. x > 0",
+    "dlg.retHint": "es. x * 2",
+    // function modal
+    "err.badName": "Nome non valido", "err.badParamName": "Nome parametro non valido",
+    "err.dupFn": "Esiste già una funzione con questo nome",
+    // block context menu
+    "ctx.edit": "Modifica", "ctx.dup": "Duplica", "ctx.del": "Elimina",
+    // export
+    "export.title": "Esporta codice", "export.lang": "Linguaggio",
+    "export.copy": "Copia", "export.download": "Scarica",
+    // help / about
+    "help.title": "Guida rapida", "about.title": "Informazioni",
+    // confirms / alerts
+    "alert.confirmNew": "Creare un nuovo programma vuoto? Le modifiche non salvate andranno perse.",
+    "alert.loadExample": "Caricare l'esempio", "alert.replaceNote": "Il programma attuale verrà sostituito.",
+    "alert.deleteFn": "Eliminare la funzione",
+    "alert.badFile": "File non valido: ",
+    "alert.fnTitle": "Doppio clic per modificare la funzione",
+    // input dialog
+    "input.title": "Input — ", "input.defaultPrompt": "Inserisci un valore per ",
+    "input.hint.Boolean": "rispondi true/false", "input.hint.Integer": "numero intero",
+    "input.hint.Real": "numero decimale", "input.hint.Char": "un carattere", "input.hint.other": "testo",
+    // examples
+    "ex.hello.name": "Ciao, mondo!",
+    "ex.guess.name": "Indovina il numero",
+    "ex.guess.d": "segreto", "ex.guess.t": "tentativo",
+    "ex.guess.prompt": "Indovina il numero (1-100)",
+    "ex.guess.win": "Hai indovinato in ", "ex.guess.attempts": " tentativi!",
+    "ex.guess.low": "Troppo basso!", "ex.guess.high": "Troppo alto!",
+    "ex.fact.name": "Fattoriale ricorsivo",
+    "ex.fact.prompt": "Un numero intero",
+    "ex.fact.msg1": "Il fattoriale di ", "ex.fact.msg2": " e' ",
+    "ex.avg.name": "Media di N numeri",
+    "ex.avg.promptN": "Quanti numeri?", "ex.avg.promptV": "Numero",
+    "ex.avg.msg": "Media: ",
+    "ex.spiral.name": "Tartaruga: spirale",
+    "ex.done": "Fatto!",
+    // runtime prefixes for console
+    "run.start": "— esecuzione di '", "run.end": "— fine, ",
+    "run.in": " in ", "run.interrupt": "— interrotto —",
+    "status.steps": " passi", "status.error": "Errore: ",
+    "run.welcome": "Benvenuto in FlowWeb — trascina i blocchi sul diagramma e premi Esegui (F5)."
+  },
+  en: {
+    "menu.file": "File", "menu.edit": "Program", "menu.run": "Run",
+    "menu.view": "View", "menu.help": "Help",
+    "menu.newProgram": "New program", "menu.openProgram": "Open file…",
+    "menu.saveProgram": "Save to file…", "menu.exportPng": "Export diagram (PNG)…",
+    "menu.exportCode": "Export code…", "menu.examples": "Examples ▸",
+    "menu.newFunction": "New function…", "menu.editFunction": "Edit current function…",
+    "menu.runGo": "Run  (F5)", "menu.runPause": "Pause / Resume",
+    "menu.runStep": "Step  (F10)", "menu.runStop": "Stop",
+    "menu.themeAuto": "Theme: Auto", "menu.themeLight": "Theme: Light", "menu.themeDark": "Theme: Dark",
+    "menu.helpQuick": "Quick guide", "menu.helpAbout": "About FlowWeb",
+    "lang.label": "Language",
+    "tb.new": "New", "tb.open": "Open", "tb.save": "Save",
+    "tb.run": "Run", "tb.pause": "Pause", "tb.step": "Step", "tb.stop": "Stop",
+    "tb.code": "Code", "tb.png": "PNG",
+    "tb.tip.new": "New program", "tb.tip.open": "Open .json file", "tb.tip.save": "Save .json file",
+    "tb.tip.run": "Run (F5)", "tb.tip.pause": "Pause / Resume", "tb.tip.step": "Step (F10)", "tb.tip.stop": "Stop",
+    "tb.tip.code": "Export code", "tb.tip.png": "Export diagram PNG",
+    "tb.speed": "Speed", "tb.zoomOut": "Zoom out", "tb.zoomIn": "Zoom in",
+    "palette.header": "Blocks — drag onto the diagram",
+    "fn.addHint": "New function", "fn.editSignature": "Edit signature", "fn.delete": "Delete function",
+    "tab.console": "Console", "tab.vars": "Variables", "tab.turtle": "Turtle",
+    "console.clear": "Clear",
+    "vars.hint": "Variables appear during execution.",
+    "status.ready": "Ready.", "status.inExec": "Running", "status.paused": "(paused)", "status.stepping": "(stepping)",
+    "status.step": "step", "status.fn": "Function", "status.blocks": "Blocks", "status.zoom": "Zoom",
+    "status.pausedLbl": "Paused.", "status.resumed": "Running.",
+    "status.done": "Done", "status.stopped": "Aborted.", "status.newProgram": "New program.",
+    "status.exampleLoaded": "Example loaded: ", "status.programLoaded": "Program loaded: ",
+    "status.theme": "Theme",
+    "dlg.title.decl": "Variable declarations", "dlg.title.assign": "Assignment",
+    "dlg.title.input": "Input", "dlg.title.output": "Output", "dlg.title.if": "If / Else",
+    "dlg.title.while": "While", "dlg.title.for": "For", "dlg.title.do": "Do While",
+    "dlg.title.call": "Function call", "dlg.title.return": "Return", "dlg.title.comment": "Comment",
+    "dlg.title.newFn": "New function", "dlg.title.editFn": "Edit function",
+    "dlg.ok": "OK", "dlg.cancel": "Cancel", "dlg.close": "Close",
+    "dlg.confirm.title": "Confirm",
+    "dlg.expr": "Expression", "dlg.cond": "Condition", "dlg.var": "Variable",
+    "dlg.idx": "Index", "dlg.prompt": "Prompt", "dlg.valueOf": "Value",
+    "dlg.nl": "New line after output", "dlg.text": "Text",
+    "dlg.step": "Step", "dlg.dir": "Direction",
+    "dlg.dirup": "ascending (to)", "dlg.dirdown": "descending (downto)",
+    "dlg.fn": "Function", "dlg.args": "Arguments",
+    "dlg.fnName": "Name", "dlg.params": "Parameters", "dlg.returns": "Returns",
+    "dlg.returns.none": "none (void)",
+    "dlg.addvar": "+ variable", "dlg.addparam": "+ parameter",
+    "dlg.retNotice": "This function does not return a value.",
+    "dlg.chooseVar": "— choose a variable —", "dlg.chooseFn": "— choose a function —",
+    "dlg.varHint": "e.g. 0", "dlg.exprHint": "e.g. x + 1",
+    "dlg.promptHint": "Question shown to the user",
+    "dlg.exprOutHint": "e.g. \"Hello\" or x * 2", "dlg.condHint": "e.g. x > 0",
+    "dlg.retHint": "e.g. x * 2",
+    "err.badName": "Invalid name", "err.badParamName": "Invalid parameter name",
+    "err.dupFn": "A function with this name already exists",
+    "ctx.edit": "Edit", "ctx.dup": "Duplicate", "ctx.del": "Delete",
+    "export.title": "Export code", "export.lang": "Language",
+    "export.copy": "Copy", "export.download": "Download",
+    "help.title": "Quick guide", "about.title": "About",
+    "alert.confirmNew": "Create a new empty program? Unsaved changes will be lost.",
+    "alert.loadExample": "Load the example", "alert.replaceNote": "The current program will be replaced.",
+    "alert.deleteFn": "Delete the function",
+    "alert.badFile": "Invalid file: ",
+    "alert.fnTitle": "Double-click to edit the function",
+    "input.title": "Input — ", "input.defaultPrompt": "Enter a value for ",
+    "input.hint.Boolean": "answer true/false", "input.hint.Integer": "integer",
+    "input.hint.Real": "decimal number", "input.hint.Char": "one character", "input.hint.other": "text",
+    "ex.hello.name": "Hello, world!",
+    "ex.guess.name": "Guess the number",
+    "ex.guess.d": "secret", "ex.guess.t": "guess",
+    "ex.guess.prompt": "Guess the number (1-100)",
+    "ex.guess.win": "You got it in ", "ex.guess.attempts": " tries!",
+    "ex.guess.low": "Too low!", "ex.guess.high": "Too high!",
+    "ex.fact.name": "Recursive factorial",
+    "ex.fact.prompt": "Enter an integer",
+    "ex.fact.msg1": "The factorial of ", "ex.fact.msg2": " is ",
+    "ex.avg.name": "Average of N numbers",
+    "ex.avg.promptN": "How many numbers?", "ex.avg.promptV": "Number",
+    "ex.avg.msg": "Average: ",
+    "ex.spiral.name": "Turtle: spiral",
+    "ex.done": "Done!",
+    "run.start": "— execution of '", "run.end": "— done, ",
+    "run.in": " in ", "run.interrupt": "— interrupted —",
+    "status.steps": " steps", "status.error": "Error: ",
+    "run.welcome": "Welcome to FlowWeb — drag blocks onto the diagram and press Run (F5)."
+  }
+};
+
+function t(key, vars) {
+  var s = (I18N[I18N_CUR] && I18N[I18N_CUR][key]) || I18N.it[key];
+  if (s === undefined) { console.warn("missing i18n key:", key); s = "[" + key + "]"; }
+  if (vars) Object.keys(vars).forEach(function (k) { s = s.split("{" + k + "}").join(vars[k]); });
+  return s;
+}
+
+function detectLang() {
+  var pref = null;
+  try { pref = localStorage.getItem(I18N_STORAGE_KEY); } catch (e) {}
+  if (pref && I18N_LANGS.indexOf(pref) >= 0) return pref;
+  var browser = (typeof navigator !== "undefined" && (navigator.language || navigator.userLanguage || "en")).toLowerCase();
+  var base = browser.split("-")[0];
+  return I18N_LANGS.indexOf(base) >= 0 ? base : "en";
+}
+
+function setLang(lang) {
+  if (I18N_LANGS.indexOf(lang) < 0) lang = "en";
+  I18N_CUR = lang;
+  try { localStorage.setItem(I18N_STORAGE_KEY, lang); } catch (e) {}
+  applyI18n();
+}
+
+function initI18n() {
+  I18N_CUR = detectLang();
+}
+
 /* ---------------------------------------------------------------- utils */
-var NS = "http://www.w3.org/2000/svg";
-var MEAS = null;
+var NS = "http://www.w3.org/2000/svg";var MEAS = null;
 function textW(s, bold) {
   if (typeof document !== "undefined") {
     if (!MEAS) MEAS = document.createElement("canvas").getContext("2d");
@@ -687,7 +923,7 @@ function blockTip(b) {
 /* ---------------------------------------------------------- esempi */
 var EXAMPLES = [
   {
-    name: "Ciao, mondo!",
+    key: "hello",
     make: function () {
       var p = newProgram();
       var o = newBlock("output");
@@ -697,44 +933,44 @@ var EXAMPLES = [
     }
   },
   {
-    name: "Indovina il numero",
+    key: "guess",
     make: function () {
       var p = newProgram();
       var m = p.functions[0];
       var d = newBlock("declare");
       d.vars = [
-        { name: "segreto", type: "Integer", arr: false, size: "10" },
-        { name: "tentativo", type: "Integer", arr: false, size: "10" },
+        { name: t("ex.guess.d"), type: "Integer", arr: false, size: "10" },
+        { name: t("ex.guess.t"), type: "Integer", arr: false, size: "10" },
         { name: "n", type: "Integer", arr: false, size: "10" }
       ];
       m.body.push(d);
-      var a1 = newBlock("assign"); a1.var = "segreto"; a1.expr = "Random(100) + 1"; m.body.push(a1);
+      var a1 = newBlock("assign"); a1.var = t("ex.guess.d"); a1.expr = "Random(100) + 1"; m.body.push(a1);
       var a2 = newBlock("assign"); a2.var = "n"; a2.expr = "0"; m.body.push(a2);
-      var w = newBlock("while"); w.cond = "tentativo != segreto"; w.body = [];
-      var inp = newBlock("input"); inp.var = "tentativo"; inp.prompt = "Indovina il numero (1-100)";
+      var w = newBlock("while"); w.cond = t("ex.guess.t") + " != " + t("ex.guess.d"); w.body = [];
+      var inp = newBlock("input"); inp.var = t("ex.guess.t"); inp.prompt = t("ex.guess.prompt");
       var inc = newBlock("assign"); inc.var = "n"; inc.expr = "n + 1";
-      var iff = newBlock("if"); iff.cond = "tentativo < segreto";
-      var o1 = newBlock("output"); o1.expr = '"Troppo basso!"'; iff.then.push(o1);
-      var iff2 = newBlock("if"); iff2.cond = "tentativo > segreto";
-      var o2 = newBlock("output"); o2.expr = '"Troppo alto!"'; iff2.then.push(o2);
+      var iff = newBlock("if"); iff.cond = t("ex.guess.t") + " < " + t("ex.guess.d");
+      var o1 = newBlock("output"); o1.expr = '"' + t("ex.guess.low") + '"'; iff.then.push(o1);
+      var iff2 = newBlock("if"); iff2.cond = t("ex.guess.t") + " > " + t("ex.guess.d");
+      var o2 = newBlock("output"); o2.expr = '"' + t("ex.guess.high") + '"'; iff2.then.push(o2);
       iff.else.push(iff2);
       w.body.push(inp); w.body.push(inc); w.body.push(iff);
       m.body.push(w);
-      var fin = newBlock("output"); fin.expr = '"Hai indovinato in " & n & " tentativi!"'; m.body.push(fin);
+      var fin = newBlock("output"); fin.expr = '"' + t("ex.guess.win") + '" & n & "' + t("ex.guess.attempts") + '"'; m.body.push(fin);
       return p;
     }
   },
   {
-    name: "Fattoriale ricorsivo",
+    key: "fact",
     make: function () {
       var p = newProgram();
       var m = p.functions[0];
       var d = newBlock("declare");
       d.vars = [{ name: "n", type: "Integer", arr: false, size: "10" }, { name: "r", type: "Integer", arr: false, size: "10" }];
       m.body.push(d);
-      var i = newBlock("input"); i.var = "n"; i.prompt = "Un numero intero"; m.body.push(i);
+      var i = newBlock("input"); i.var = "n"; i.prompt = t("ex.fact.prompt"); m.body.push(i);
       var a = newBlock("assign"); a.var = "r"; a.expr = "Fattoriale(n)"; m.body.push(a);
-      var o = newBlock("output"); o.expr = '"Il fattoriale di " & n & " e\' " & r'; m.body.push(o);
+      var o = newBlock("output"); o.expr = '"' + t("ex.fact.msg1") + '" & n & "' + t("ex.fact.msg2") + '" & r'; m.body.push(o);
       var f = newFn("Fattoriale");
       f.params = [{ name: "n", type: "Integer" }];
       f.ret = "Integer";
@@ -747,26 +983,26 @@ var EXAMPLES = [
     }
   },
   {
-    name: "Media di N numeri",
+    key: "avg",
     make: function () {
       var p = newProgram();
       var m = p.functions[0];
       var d = newBlock("declare");
       d.vars = [{ name: "n", type: "Integer", arr: false, size: "10" }, { name: "i", type: "Integer", arr: false, size: "10" }, { name: "s", type: "Real", arr: false, size: "10" }, { name: "v", type: "Real", arr: false, size: "10" }];
       m.body.push(d);
-      var i1 = newBlock("input"); i1.var = "n"; i1.prompt = "Quanti numeri?"; m.body.push(i1);
+      var i1 = newBlock("input"); i1.var = "n"; i1.prompt = t("ex.avg.promptN"); m.body.push(i1);
       var az = newBlock("assign"); az.var = "s"; az.expr = "0"; m.body.push(az);
       var f = newBlock("for"); f.var = "i"; f.from = "1"; f.to = "n"; f.step = "1";
-      var iv = newBlock("input"); iv.var = "v"; iv.prompt = "Numero";
+      var iv = newBlock("input"); iv.var = "v"; iv.prompt = t("ex.avg.promptV");
       var aa = newBlock("assign"); aa.var = "s"; aa.expr = "s + v";
       f.body.push(iv); f.body.push(aa);
       m.body.push(f);
-      var o = newBlock("output"); o.expr = '"Media: " & (s / n)'; m.body.push(o);
+      var o = newBlock("output"); o.expr = '"' + t("ex.avg.msg") + '" & (s / n)'; m.body.push(o);
       return p;
     }
   },
   {
-    name: "Tartaruga: spirale",
+    key: "spiral",
     make: function () {
       var p = newProgram();
       var m = p.functions[0];
@@ -778,7 +1014,7 @@ var EXAMPLES = [
       var tn = newBlock("call"); tn.fn = "TurtleTurn"; tn.args = ["90"];
       f.body.push(mv); f.body.push(tn);
       m.body.push(f);
-      var o = newBlock("output"); o.expr = '"Fatto!"'; m.body.push(o);
+      var o = newBlock("output"); o.expr = '"' + t("ex.done") + '"'; m.body.push(o);
       return p;
     }
   }
@@ -905,7 +1141,7 @@ var RT = {
   status: function () {
     if (typeof document === "undefined") return;
     var el = document.getElementById("status-left");
-    if (el) el.textContent = (this.state === "idle" ? "" : ("Esecuzione \u2014 passo " + this.steps + (this.paused ? " (in pausa)" : (this.stepping ? " (passo a passo)" : "")))) || "Pronto.";
+    if (el) el.textContent = this.state === "idle" ? t("status.ready") : (t("status.inExec") + " \u2014 " + t("status.step") + " " + this.steps + (this.paused ? " " + t("status.paused") : (this.stepping ? " " + t("status.stepping") : "")));
   },
 
   highlight: function (id) {
@@ -988,7 +1224,7 @@ function makeFrame(fn) {
       if (vars[key]) throw rtErr("Variabile dichiarata due volte: " + v.name);
       if (v.arr) {
         var size = constEval(v.size);
-        if (size === null || size < 1 || size > 100000) throw rtErr("Dimensione array non valida per " + v.name + ": " + v.size);
+        if (size === null || size < 1 || size > 100000) throw rtErr(I18N_CUR==="it"?"Dimensione array non valida per ":"Invalid array size for " + v.name + ": " + v.size);
         var items = [];
         for (var i = 0; i < size; i++) items.push(defaultVal(v.type));
         vars[key] = { name: v.name, type: v.type, arr: true, size: size, items: items };
@@ -1407,20 +1643,20 @@ async function startRun(mode) {
   consoleClear();
   turtleReset();
   setRunUI();
-  RT.outLine("\u2014 esecuzione di '" + fns()[0].name + "' \u2014\n", "sys");
+  RT.outLine(t("run.start") + fns()[0].name + "' " + "\u2014\n", "sys");
   var t0 = Date.now();
   try {
     await callFn(fns()[0], []);
-    RT.outLine("\u2014 fine, " + RT.steps + " passi in " + ((Date.now() - t0) / 1000).toFixed(1) + "s \u2014", "sys");
-    setStatus("Fatto: " + RT.steps + " passi.");
+    RT.outLine(t("run.end") + RT.steps + t("status.steps") + t("run.in") + ((Date.now() - t0) / 1000).toFixed(1) + "s \u2014", "sys");
+    setStatus(t("status.done") + ": " + RT.steps + t("status.steps") + ".");
   } catch (e) {
     if (e && e.stop) {
-      RT.outLine("\u2014 interrotto \u2014", "sys");
-      setStatus("Interrotto.");
+      RT.outLine(t("run.interrupt"), "sys");
+      setStatus(t("status.stopped"));
     } else {
       var msg = (e && e.message) ? e.message : String(e);
-      RT.outLine("Errore: " + msg, "err");
-      setStatus("Errore: " + msg, true);
+      RT.outLine(t("status.error") + msg, "err");
+      setStatus(t("status.error") + msg, true);
       if (e && e.block) { RT.highlight(e.block.id); DRAW.els[e.block.id] && DRAW.els[e.block.id].classList.add("err"); }
     }
   } finally {
@@ -1536,7 +1772,7 @@ function drawChain(arr, F, cy) {
     var g = svgEl("g", {}, DRAW.gRoot);
     svgEl("rect", { x: F - 85, y: py, width: 170, height: 36, rx: 8, "class": "placeholder-box" }, g);
     var t = svgEl("text", { x: F, y: py + 22, "text-anchor": "middle", "class": "placeholder-text", "font-family": "Segoe UI" }, g);
-    t.textContent = "trascina un blocco qui";
+    t.textContent = I18N_CUR === "it" ? "trascina un blocco qui" : "drag a block here";
     track(F - 85, py, 170, 36);
     addZone(arr, 0, F, py + 18);
     return py + 36;
@@ -1594,9 +1830,9 @@ function drawBlock(b, F, top) {
       svgEl("line", { x1: F, y1: elbowY, x2: F1, y2: elbowY, "class": "flowline" }, gl);
       svgEl("line", { x1: F, y1: elbowY, x2: F2, y2: elbowY, "class": "flowline" }, gl);
       var lt = svgEl("text", { x: F1 + 6, y: elbowY - 5, "class": "lbl", "font-family": "Segoe UI" }, gl);
-      lt.textContent = "true";
+      lt.textContent = I18N_CUR === "it" ? "vero" : "true";
       var lf = svgEl("text", { x: F2 + 6, y: elbowY - 5, "class": "lbl", "font-family": "Segoe UI" }, gl);
-      lf.textContent = "false";
+      lf.textContent = I18N_CUR === "it" ? "falso" : "false";
       drawConnector(gl, F1, elbowY, elbowY + L.GAP);
       drawConnector(gl, F2, elbowY, elbowY + L.GAP);
       var tEnd = drawChain(b.then, F1, elbowY);
@@ -1655,7 +1891,7 @@ function render() {
   var ht = svgEl("text", { x: F, y: y + L.H / 2 + 4.5, "text-anchor": "middle", "font-weight": "bold", "font-family": "Segoe UI", fill: "#fff" }, hg);
   ht.textContent = fitText(fnHeader(fn), hw - 40);
   track(F - hw / 2, y, hw, L.H);
-  DRAW.els["__fn__"] = hg;
+  if (DRAW.els.__fn__) DRAW.els.__fn__ = hg;
   var cy = y + L.H;
   var gl = svgEl("g", {}, DRAW.gRoot);
   drawConnector(gl, F, cy, cy + L.GAP);
@@ -1700,11 +1936,11 @@ function renderWatch() {
   var table = document.getElementById("vars-table");
   if (!RT.frames.length) {
     if (table) table.remove();
-    if (!hint) { host.innerHTML = ""; var d = document.createElement("div"); d.id = "vars-hint"; d.textContent = "Le variabili compaiono durante l'esecuzione."; host.appendChild(d); }
+    if (!hint) { host.innerHTML = ""; var d = document.createElement("div"); d.id = "vars-hint"; d.textContent = t("vars.hint"); host.appendChild(d); }
     return;
   }
   if (hint) hint.remove();
-  var html = '<table id="vars-table"><tr><th>Variabile</th><th>Tipo</th><th>Valore</th></tr>';
+  var html = '<table id="vars-table"><tr><th>' + t("dlg.var") + '</th><th>' + (I18N_CUR === "it" ? "Tipo" : "Type") + '</th><th>' + (I18N_CUR === "it" ? "Valore" : "Value") + '</th></tr>';
   var prev = host._prev || {};
   var now = {};
   RT.frames.forEach(function (fr) {
@@ -2222,7 +2458,7 @@ function updateStatusRight() {
   var n = 0;
   walkChain(currentFn().body, function () { n++; });
   document.getElementById("status-right").textContent =
-    "Funzione: " + currentFn().name + "  \u2022  Blocchi: " + n + "  \u2022  Zoom: " + Math.round(Z * 100) + "%";
+    t("status.fn") + ": " + currentFn().name + "  \u2022  " + t("status.blocks") + ": " + n + "  \u2022  " + t("status.zoom") + ": " + Math.round(Z * 100) + "%";
 }
 function consoleAppend(text, cls) {
   var c = document.getElementById("console");
@@ -2256,8 +2492,8 @@ function updateTabs() {
     t.oncontextmenu = function (e) {
       e.preventDefault();
       showCtxMenu(e.clientX, e.clientY, [
-        { label: "Modifica firma", action: function () { openFunctionModal(f); } },
-        { label: "Elimina funzione", disabled: f.name === "Main", action: function () { deleteFunction(f); } }
+        { label: t("fn.editSignature"), action: function () { openFunctionModal(f); } },
+        { label: t("fn.delete"), disabled: f.name === "Main", action: function () { deleteFunction(f); } }
       ]);
     };
     host.appendChild(t);
@@ -2265,7 +2501,7 @@ function updateTabs() {
   var add = document.createElement("div");
   add.className = "fntab add";
   add.textContent = "+";
-  add.title = "Nuova funzione";
+  add.title = t("fn.addHint");
   add.onclick = function () { openFunctionModal(null); };
   host.appendChild(add);
 }
@@ -2381,7 +2617,7 @@ var PAL = [
 ];
 function buildPalette() {
   var host = document.getElementById("palette");
-  host.innerHTML = "<h3>Blocchi \u2014 trascina sul diagramma</h3>";
+  host.innerHTML = "<h3>" + t("palette.header") + "</h3>";
   PAL.forEach(function (p) {
     var d = document.createElement("div");
     d.className = "pal-item";
@@ -2412,18 +2648,18 @@ function buildToolbar() {
   }
   function sep() { var s = document.createElement("div"); s.className = "tsep"; host.appendChild(s); }
 
-  btn("new", "Nuovo programma", ICONS.new, "Nuovo", function () { doNew(); });
-  btn("open", "Apri file .json", ICONS.open, "Apri", function () { doOpen(); });
-  btn("save", "Salva file .json", ICONS.save, "Salva", function () { doSave(); });
+  btn("new", t("tb.tip.new"), ICONS.new, t("tb.new"), function () { doNew(); });
+  btn("open", t("tb.tip.open"), ICONS.open, t("tb.open"), function () { doOpen(); });
+  btn("save", t("tb.tip.save"), ICONS.save, t("tb.save"), function () { doSave(); });
   sep();
-  btn("run", "Esegui (F5)", ICONS.run, "Esegui", function () { doRunBtn(); });
-  btn("pause", "Pausa / Riprendi", ICONS.pause, "Pausa", function () { doPauseBtn(); });
-  btn("step", "Passo (F10)", ICONS.step, "Passo", function () { doStepBtn(); });
-  btn("stop", "Stop", ICONS.stop, "Stop", function () { doStopBtn(); });
+  btn("run", t("tb.tip.run"), ICONS.run, t("tb.run"), function () { doRunBtn(); });
+  btn("pause", t("tb.tip.pause"), ICONS.pause, t("tb.pause"), function () { doPauseBtn(); });
+  btn("step", t("tb.tip.step"), ICONS.step, t("tb.step"), function () { doStepBtn(); });
+  btn("stop", t("tb.tip.stop"), ICONS.stop, t("tb.stop"), function () { doStopBtn(); });
   sep();
   var sw = document.createElement("div");
   sw.id = "speed-wrap";
-  sw.innerHTML = '<label>Velocit\u00e0</label><input id="speed" type="range" min="0" max="2000" step="50" value="350"><span id="speed-val">350ms</span>';
+  sw.innerHTML = '<label>' + t("tb.speed") + '</label><input id="speed" type="range" min="0" max="2000" step="50" value="350"><span id="speed-val">350ms</span>';
   host.appendChild(sw);
   sw.querySelector("#speed").addEventListener("input", function () {
     RT.speed = +this.value;
@@ -2435,13 +2671,13 @@ function buildToolbar() {
   sep();
   var zw = document.createElement("div");
   zw.id = "zoom-wrap";
-  zw.innerHTML = '<button class="btn zbtn" id="zoom-out" title="Riduci">\u2212</button><span id="zoom-val">100%</span><button class="btn zbtn" id="zoom-in" title="Ingrandisci">+</button>';
+  zw.innerHTML = '<button class="btn zbtn" id="zoom-out" title="' + t("tb.zoomOut") + '">\u2212</button><span id="zoom-val">100%</span><button class="btn zbtn" id="zoom-in" title="' + t("tb.zoomIn") + '">+</button>';
   host.appendChild(zw);
   zw.querySelector("#zoom-out").onclick = function () { Z = clamp(Z - 0.1, 0.5, 1.6); applyZoom(); updateStatusRight(); };
   zw.querySelector("#zoom-in").onclick = function () { Z = clamp(Z + 0.1, 0.5, 1.6); applyZoom(); updateStatusRight(); };
   sep();
-  btn("code", "Esporta codice", ICONS.code, "Codice", function () { openExportModal(); });
-  btn("png", "Esporta diagramma PNG", ICONS.png, "PNG", function () { exportPNG(); });
+  btn("code", t("tb.tip.code"), ICONS.code, t("tb.code"), function () { openExportModal(); });
+  btn("png", t("tb.tip.png"), ICONS.png, t("tb.png"), function () { exportPNG(); });
   setRunUI();
 }
 function setRunUI() {
@@ -2452,13 +2688,13 @@ function setRunUI() {
   TB.stop && (TB.stop.disabled = !running);
 }
 function doRunBtn() {
-  if (RT.state === "running") { RT.resume(); setStatus("In esecuzione."); }
+  if (RT.state === "running") { RT.resume(); setStatus(t("status.resumed")); }
   else startRun("run");
 }
 function doPauseBtn() {
   if (RT.state !== "running") return;
-  if (RT.paused) { RT.resume(); setStatus("In esecuzione."); }
-  else { RT.pause(); setStatus("In pausa."); }
+  if (RT.paused) { RT.resume(); setStatus(t("status.resumed")); }
+  else { RT.pause(); setStatus(t("status.pausedLbl")); }
 }
 function doStepBtn() {
   if (RT.state === "idle") startRun("step");
@@ -2481,37 +2717,39 @@ var ICONS = {
 };
 
 /* ---- menu ---- */
-var MENUS = [
-  { label: "File", items: [
-    { label: "Nuovo programma", action: function () { doNew(); } },
-    { label: "Apri file\u2026", action: function () { doOpen(); } },
-    { label: "Salva su file\u2026", action: function () { doSave(); } },
-    { sep: true },
-    { label: "Esporta diagramma (PNG)\u2026", action: function () { exportPNG(); } },
-    { label: "Esporta codice\u2026", action: function () { openExportModal(); } },
-    { sep: true },
-    { label: "Esempi \u25b8", action: function (ev, anchor) { showExampleMenu(anchor); } }
-  ]},
-  { label: "Programma", items: [
-    { label: "Nuova funzione\u2026", action: function () { openFunctionModal(null); } },
-    { label: "Modifica funzione corrente\u2026", action: function () { openFunctionModal(currentFn()); } }
-  ]},
-  { label: "Esegui", items: [
-    { label: "Esegui  (F5)", action: function () { doRunBtn(); } },
-    { label: "Pausa / Riprendi", action: function () { doPauseBtn(); } },
-    { label: "Passo  (F10)", action: function () { doStepBtn(); } },
-    { label: "Stop", action: function () { doStopBtn(); } }
-  ]},
-  { label: "Visualizza", items: [
-    { label: "Tema: Automatico", action: function () { setThemePref("auto"); } },
-    { label: "Tema: Chiaro", action: function () { setThemePref("light"); } },
-    { label: "Tema: Scuro", action: function () { setThemePref("dark"); } }
-  ]},
-  { label: "Aiuto", items: [
-    { label: "Guida rapida", action: function () { openHelpModal(); } },
-    { label: "Informazioni su FlowWeb", action: function () { openAboutModal(); } }
-  ]}
-];
+function menuModel() {
+  return [
+    { key: "menu.file", items: [
+      { key: "menu.newProgram", action: function () { doNew(); } },
+      { key: "menu.openProgram", action: function () { doOpen(); } },
+      { key: "menu.saveProgram", action: function () { doSave(); } },
+      { sep: true },
+      { key: "menu.exportPng", action: function () { exportPNG(); } },
+      { key: "menu.exportCode", action: function () { openExportModal(); } },
+      { sep: true },
+      { key: "menu.examples", action: function (ev, anchor) { showExampleMenu(anchor); } }
+    ]},
+    { key: "menu.edit", items: [
+      { key: "menu.newFunction", action: function () { openFunctionModal(null); } },
+      { key: "menu.editFunction", action: function () { openFunctionModal(currentFn()); } }
+    ]},
+    { key: "menu.run", items: [
+      { key: "menu.runGo", action: function () { doRunBtn(); } },
+      { key: "menu.runPause", action: function () { doPauseBtn(); } },
+      { key: "menu.runStep", action: function () { doStepBtn(); } },
+      { key: "menu.runStop", action: function () { doStopBtn(); } }
+    ]},
+    { key: "menu.view", items: [
+      { key: "menu.themeAuto", action: function () { setThemePref("auto"); } },
+      { key: "menu.themeLight", action: function () { setThemePref("light"); } },
+      { key: "menu.themeDark", action: function () { setThemePref("dark"); } }
+    ]},
+    { key: "menu.help", items: [
+      { key: "menu.helpQuick", action: function () { openHelpModal(); } },
+      { key: "menu.helpAbout", action: function () { openAboutModal(); } }
+    ]}
+  ];
+}
 function buildMenubar() {
   var bar = document.getElementById("menubar");
   bar.innerHTML = "";
@@ -2519,10 +2757,10 @@ function buildMenubar() {
   logo.id = "app-title";
   logo.innerHTML = "<b>Flow</b>Web";
   bar.appendChild(logo);
-  MENUS.forEach(function (m) {
+  menuModel().forEach(function (m) {
     var it = document.createElement("div");
     it.className = "menu-item";
-    it.textContent = m.label;
+    it.textContent = t(m.key);
     var dd = null;
     var openedByHover = false;
     function open(byHover) {
@@ -2535,7 +2773,7 @@ function buildMenubar() {
         if (mi.sep) { var s = document.createElement("div"); s.className = "sep"; dd.appendChild(s); return; }
         var d = document.createElement("div");
         d.className = "di" + (mi.disabled ? " disabled" : "");
-        d.textContent = mi.label;
+        d.textContent = t(mi.key);
         d.onclick = function (e) { closeAllMenus(); mi.action(e, it); };
         dd.appendChild(d);
       });
@@ -2557,16 +2795,67 @@ function buildMenubar() {
   function closeAllMenus() {
     document.querySelectorAll(".menu-item.open").forEach(function (x) { x.classList.remove("open"); var d = x.querySelector(".dropdown"); if (d) d.remove(); });
   }
+  var spacer = document.createElement("span");
+  spacer.className = "grow";
+  spacer.style.flex = "1";
+  bar.appendChild(spacer);
+  var langBtn = document.createElement("button");
+  langBtn.id = "lang-btn";
+  langBtn.className = "menu-item";
+  langBtn.setAttribute("aria-label", t("lang.label"));
+  langBtn.title = t("lang.label");
+  langBtn.innerHTML = '<span class="lang-flag">' + langFlag(I18N_CUR) + '</span> <span class="lang-code">' + I18N_CUR.toUpperCase() + "</span>";
+  bar.appendChild(langBtn);
+  langBtn.onclick = function (e) { e.stopPropagation(); openLangMenu(langBtn); };
+}
+function langFlag(code) { return code === "it" ? "\ud83c\uddee\ud83c\uddf9" : "\ud83c\uddec\ud83c\udde7"; }
+function openLangMenu(anchor) {
+  closeLangMenu();
+  var m = document.createElement("div");
+  m.id = "langmenu";
+  m.className = "dropdown";
+  document.body.appendChild(m);
+  I18N_LANGS.forEach(function (code) {
+    var d = document.createElement("div");
+    d.className = "di" + (code === I18N_CUR ? " selected" : "");
+    d.innerHTML = '<span class="lang-flag">' + langFlag(code) + '</span> ' + ({ it: "Italiano", en: "English" }[code]) + (code === I18N_CUR ? " ✓" : "");
+    d.onclick = function () { closeLangMenu(); setLang(code); };
+    m.appendChild(d);
+  });
+  var r = anchor.getBoundingClientRect();
+  m.style.position = "fixed";
+  m.style.top = (r.bottom + 4) + "px";
+  m.style.right = Math.max(6, window.innerWidth - r.right) + "px";
+  m.style.zIndex = "600";
+  setTimeout(function () {
+    document.addEventListener("mousedown", function h(e) {
+      if (!m.contains(e.target)) { closeLangMenu(); document.removeEventListener("mousedown", h); }
+    });
+  }, 0);
+}
+function closeLangMenu() {
+  var m = document.getElementById("langmenu"); if (m) m.remove();
+}
+function applyI18n() {
+  buildMenubar();
+  buildToolbar();
+  buildPalette();
+  updateTabs();
+  document.querySelectorAll(".btab").forEach(function (b) { b.textContent = t("tab." + b.dataset.p); });
+  document.getElementById("console-clear").textContent = t("console.clear");
+  var hint = document.getElementById("vars-hint"); if (hint) hint.textContent = t("vars.hint");
+  setStatus(t("status.ready"));
+  updateStatusRight();
 }
 function showExampleMenu(anchor) {
   var r = anchor.getBoundingClientRect();
   showCtxMenu(r.left, r.bottom, EXAMPLES.map(function (ex) {
-    return { label: ex.name, action: function () {
-      openConfirm("Caricare l'esempio '" + ex.name + "'? Il programma attuale verr\u00e0 sostituito.", function () {
+    return { label: t("ex." + ex.key + ".name"), action: function () {
+      openConfirm(t("alert.loadExample") + " '" + t("ex." + ex.key + ".name") + "'. " + t("alert.replaceNote"), function () {
         PROGRAM = ex.make();
         curFnId = PROGRAM.functions[0].id;
         commit();
-        setStatus("Esempio caricato: " + ex.name);
+        setStatus(t("status.exampleLoaded") + t("ex." + ex.key + ".name"));
       });
     } };
   }));
@@ -2574,12 +2863,12 @@ function showExampleMenu(anchor) {
 
 /* ---- file ops ---- */
 function doNew() {
-  openConfirm("Creare un nuovo programma vuoto? Le modifiche non salvate andranno perse.", function () {
+  openConfirm(t("alert.confirmNew"), function () {
     PROGRAM = newProgram();
     curFnId = PROGRAM.functions[0].id;
     commit();
     consoleClear();
-    setStatus("Nuovo programma.");
+    setStatus(t("status.newProgram"));
   });
 }
 function doSave() {
@@ -2603,9 +2892,9 @@ function doOpen() {
         PROGRAM = p;
         curFnId = PROGRAM.functions[0].id;
         commit();
-        setStatus("Programma caricato: " + f.name);
+        setStatus(t("status.programLoaded") + f.name);
       } catch (e) {
-        openAlert("File non valido: " + e.message);
+        openAlert(t("alert.badFile") + e.message);
       }
     };
     fr.readAsText(f);
@@ -2622,7 +2911,7 @@ function setThemePref(pref) {
   THEME_PREF = pref;
   try { localStorage.setItem("flowweb.theme", pref); } catch (e) {}
   applyTheme();
-  setStatus("Tema: " + ({ auto: "automatico", light: "chiaro", dark: "scuro" }[pref] || pref));
+  setStatus(t("status.theme") + ": " + t("menu.theme" + pref.charAt(0).toUpperCase() + pref.slice(1)).split(": ")[1]);
 }
 function applyTheme() {
   var dark = THEME_PREF === "dark" ||
@@ -2714,16 +3003,16 @@ function openAlert(msg) {
     var p = document.createElement("p");
     p.textContent = msg;
     body.appendChild(p);
-  }, [{ label: "OK", primary: true, action: function (b, e, close) { close(); } }]);
+  }, [{ label: t("dlg.ok"), primary: true, action: function (b, e, close) { close(); } }]);
 }
 function openConfirm(msg, onOk) {
-  modalOpen("Conferma", function (body) {
+  modalOpen(t("dlg.confirm.title"), function (body) {
     var p = document.createElement("p");
     p.textContent = msg;
     body.appendChild(p);
   }, [
-    { label: "Annulla", action: function (b, e, close) { close(); } },
-    { label: "OK", primary: true, action: function (b, e, close) { close(); onOk(); } }
+    { label: t("dlg.cancel"), action: function (b, e, close) { close(); } },
+    { label: t("dlg.ok"), primary: true, action: function (b, e, close) { close(); onOk(); } }
   ]);
 }
 
@@ -2732,8 +3021,8 @@ function askInputModal(b, typeName, varName) {
   return new Promise(function (resolve) {
     var done = false;
     function finish(v) { if (!done) { done = true; close(); resolve(v); } }
-    var close = modalOpen("Input \u2014 " + varName, function (body, closeRef) {
-      var prompt = (b && b.prompt) ? b.prompt : ("Inserisci un valore per " + varName + " (" + typeName + ")");
+    var close = modalOpen(t("input.title") + varName, function (body, closeRef) {
+      var prompt = (b && b.prompt) ? b.prompt : (t("input.defaultPrompt") + varName + " (" + typeName + ")");
       var p = document.createElement("p");
       p.textContent = prompt;
       body.appendChild(p);
@@ -2743,8 +3032,7 @@ function askInputModal(b, typeName, varName) {
       body.appendChild(inp);
       var hint = document.createElement("div");
       hint.className = "hint";
-      hint.textContent = typeName === "Boolean" ? "rispondi true/false" :
-        typeName === "Integer" ? "numero intero" : typeName === "Real" ? "numero decimale" : typeName === "Char" ? "un carattere" : "testo";
+      hint.textContent = t("input.hint." + (["Boolean","Integer","Real","Char"].indexOf(typeName) >= 0 ? typeName : "other"));
       body.appendChild(hint);
       inp.onkeydown = function (e) {
         if (e.key === "Enter") {
@@ -2753,8 +3041,8 @@ function askInputModal(b, typeName, varName) {
       };
       setTimeout(function () { inp.focus(); }, 30);
     }, [
-      { label: "Annulla", action: function () { finish(null); } },
-      { label: "OK", primary: true, action: function (body) {
+      { label: t("dlg.cancel"), action: function () { finish(null); } },
+      { label: t("dlg.ok"), primary: true, action: function (body) {
           var inp = body.querySelector("input");
           if (validInput(inp.value, typeName)) finish(inp.value);
           else inp.focus();
@@ -2764,7 +3052,7 @@ function askInputModal(b, typeName, varName) {
 }
 function validInput(s, typeName) {
   try { coerceInput(s, typeName); return true; }
-  catch (err) { setStatus("Input non valido: " + err.message, true); return false; }
+  catch (err) { setStatus(t("input.title") + (I18N_CUR==="it"?"non valido":"invalid") + ": " + err.message, true); return false; }
 }
 
 /* ---- form helpers ---- */
@@ -2809,7 +3097,7 @@ function fcheck(value, label) {
 }
 function varSelect(fn, filter) {
   var vars = collectVars(fn).filter(function (v) { return !filter || filter(v); });
-  var opts = [{ v: "", t: "\u2014 scegli variabile \u2014" }].concat(vars.map(function (v) {
+  var opts = [{ v: "", t: t("dlg.chooseVar") }].concat(vars.map(function (v) {
     return { v: v.name, t: v.name + " (" + v.type + (v.arr ? "[]" : "") + ")" };
   }));
   return fsel(opts, "");
@@ -2820,7 +3108,7 @@ var BUILTIN_LIST = ["ToInteger", "ToReal", "ToString", "ToChar", "ToASCII", "Len
 /* ---- modali dei blocchi ---- */
 function openBlockModal(b, fresh) {
   var fn = currentFn();
-  var title = { declare: "Dichiarazione variabili", assign: "Assegnazione", input: "Input", output: "Output", if: "If / Else", while: "While", for: "For", do: "Do While", call: "Chiamata funzione", return: "Return", comment: "Commento" }[b.type] || b.type;
+  var title = t("dlg.title." + b.type);
   var el;
 
   modalOpen(title, function (body, close) {
@@ -2830,7 +3118,7 @@ function openBlockModal(b, fresh) {
         body.appendChild(el.table);
         var add = document.createElement("button");
         add.className = "btn small";
-        add.textContent = "+ variabile";
+        add.textContent = t("dlg.addvar");
         add.onclick = function () { el.addRow({ name: "", type: "Integer", arr: false, size: "10" }); };
         body.appendChild(add);
         break;
@@ -2838,12 +3126,12 @@ function openBlockModal(b, fresh) {
       case "assign": {
         var vs = varSelect(fn);
         vs.value = b.var || "";
-        var row1 = frow("Variabile", vs);
+        var row1 = frow(t("dlg.var"), vs);
         body.appendChild(row1);
         var idxWrap = document.createElement("div");
-        var idxInp = ftext(b.index || "", "es. 0");
+        var idxInp = ftext(b.index || "", t("dlg.varHint"));
         idxWrap.appendChild(idxInp);
-        var idxRow = frow("Indice", idxWrap);
+        var idxRow = frow(t("dlg.idx"), idxWrap);
         idxRow.style.display = "none";
         body.appendChild(idxRow);
         function syncIdx() {
@@ -2851,19 +3139,19 @@ function openBlockModal(b, fresh) {
           idxRow.style.display = v && v.arr ? "" : "none";
         }
         vs.onchange = syncIdx; syncIdx();
-        var ex = ftext(b.expr || "", "es. x + 1", true);
-        body.appendChild(frow("Espressione", ex));
+        var ex = ftext(b.expr || "", t("dlg.exprHint"), true);
+        body.appendChild(frow(t("dlg.expr"), ex));
         el = { get: function () { return { var: vs.value, index: idxRow.style.display === "none" ? null : idxInp.value, expr: ex.value }; } };
         break;
       }
       case "input": {
         var vs2 = varSelect(fn);
         vs2.value = b.var || "";
-        body.appendChild(frow("Variabile", vs2));
+        body.appendChild(frow(t("dlg.var"), vs2));
         var idxWrap2 = document.createElement("div");
-        var idxInp2 = ftext(b.index || "", "es. 0");
+        var idxInp2 = ftext(b.index || "", t("dlg.varHint"));
         idxWrap2.appendChild(idxInp2);
-        var idxRow2 = frow("Indice", idxWrap2);
+        var idxRow2 = frow(t("dlg.idx"), idxWrap2);
         idxRow2.style.display = "none";
         body.appendChild(idxRow2);
         function syncIdx2() {
@@ -2871,15 +3159,15 @@ function openBlockModal(b, fresh) {
           idxRow2.style.display = v && v.arr ? "" : "none";
         }
         vs2.onchange = syncIdx2; syncIdx2();
-        var pr = ftext(b.prompt || "", "Domanda mostrata all'utente");
-        body.appendChild(frow("Prompt", pr));
+        var pr = ftext(b.prompt || "", t("dlg.promptHint"));
+        body.appendChild(frow(t("dlg.prompt"), pr));
         el = { get: function () { return { var: vs2.value, index: idxRow2.style.display === "none" ? null : idxInp2.value, prompt: pr.value }; } };
         break;
       }
       case "output": {
-        var ex2 = ftext(b.expr || "", 'es. "Ciao" oppure x * 2', true);
-        body.appendChild(frow("Espressione", ex2));
-        body.appendChild(frow("", fcheck(b.nl !== false, "Vai a capo dopo l'output")));
+        var ex2 = ftext(b.expr || "", t("dlg.exprOutHint"), true);
+        body.appendChild(frow(t("dlg.expr"), ex2));
+        body.appendChild(frow("", fcheck(b.nl !== false, t("dlg.nl"))));
         el = { get: function () {
           var chk = body.querySelector('input[type="checkbox"]');
           return { expr: ex2.value, nl: chk.checked };
@@ -2887,34 +3175,34 @@ function openBlockModal(b, fresh) {
         break;
       }
       case "if": case "while": case "do": {
-        var c = ftext(b.cond || "", "es. x > 0", true);
-        body.appendChild(frow("Condizione", c));
+        var c = ftext(b.cond || "", t("dlg.condHint"), true);
+        body.appendChild(frow(t("dlg.cond"), c));
         el = { get: function () { return { cond: c.value }; } };
         break;
       }
       case "for": {
         var vs3 = varSelect(fn, function (v) { return v.type === "Integer" && !v.arr; });
         vs3.value = b.var || "";
-        body.appendChild(frow("Variabile", vs3));
+        body.appendChild(frow(t("dlg.var"), vs3));
         var fr = ftext(b.from || "1", "es. 1");
         body.appendChild(frow("Da", fr));
         var to = ftext(b.to || "10", "es. 10");
         body.appendChild(frow("A", to));
         var st = ftext(b.step || "1", "es. 2");
-        body.appendChild(frow("Passo", st));
-        var dir = fsel([{ v: "up", t: "crescente (to)" }, { v: "down", t: "decrescente (downto)" }], b.dir || "up");
-        body.appendChild(frow("Direzione", dir));
+        body.appendChild(frow(t("dlg.step"), st));
+        var dir = fsel([{ v: "up", t: t("dlg.dirup") }, { v: "down", t: t("dlg.dirdown") }], b.dir || "up");
+        body.appendChild(frow(t("dlg.dir"), dir));
         el = { get: function () { return { var: vs3.value, from: fr.value, to: to.value, step: st.value, dir: dir.value }; } };
         break;
       }
       case "call": {
-        var fopts = [{ v: "", t: "\u2014 scegli funzione \u2014" }].concat(fns().map(function (f) {
+        var fopts = [{ v: "", t: t("dlg.chooseFn") }].concat(fns().map(function (f) {
           return { v: f.name, t: f.name + "(" + (f.params || []).map(function (p) { return p.name; }).join(", ") + ")" + (f.ret ? " : " + f.ret : "") };
         }));
         var fs = fsel(fopts, b.fn || "");
-        body.appendChild(frow("Funzione", fs));
+        body.appendChild(frow(t("dlg.fn"), fs));
         var argsHost = document.createElement("div");
-        body.appendChild(frow("Argomenti", argsHost));
+        body.appendChild(frow(t("dlg.args"), argsHost));
         function rebuildArgs(sel) {
           argsHost.innerHTML = "";
           var f = findFnByName(sel);
@@ -2933,12 +3221,12 @@ function openBlockModal(b, fresh) {
       }
       case "return": {
         if (fn.ret) {
-          var ex3 = ftext(b.expr || "", "es. x * 2", true);
-          body.appendChild(frow("Valore (" + fn.ret + ")", ex3));
+          var ex3 = ftext(b.expr || "", t("dlg.retHint"), true);
+          body.appendChild(frow(t("dlg.valueOf") + " (" + fn.ret + ")", ex3));
           el = { get: function () { return { expr: ex3.value }; } };
         } else {
           var p = document.createElement("p");
-          p.textContent = "Questa funzione non restituisce un valore.";
+          p.textContent = t("dlg.retNotice");
           body.appendChild(p);
           el = { get: function () { return { expr: "" }; } };
         }
@@ -2948,17 +3236,17 @@ function openBlockModal(b, fresh) {
         var ta = document.createElement("textarea");
         ta.rows = 3; ta.style.width = "100%";
         ta.value = b.text || "";
-        body.appendChild(frow("Testo", ta));
+        body.appendChild(frow(t("dlg.text"), ta));
         el = { get: function () { return { text: ta.value }; } };
         break;
       }
     }
   }, [
-    { label: "Annulla", action: function (bd, errEl, close) {
+    { label: t("dlg.cancel"), action: function (bd, errEl, close) {
         if (fresh) { var ref = findBlock(b.id); if (ref) ref.arr.splice(ref.index, 1); commit(); }
         close();
       } },
-    { label: "OK", primary: true, action: function (bd, errEl, close) {
+    { label: t("dlg.ok"), primary: true, action: function (bd, errEl, close) {
         var data = el.get();
         var err = validateBlock(b, data);
         if (err) { errEl.textContent = err; return; }
@@ -2976,38 +3264,38 @@ function validateBlock(b, d) {
   var fn = currentFn();
   switch (b.type) {
     case "declare":
-      if (!d.vars.length) return "Serve almeno una variabile";
+      if (!d.vars.length) return I18N_CUR==="it"?"Serve almeno una variabile":"At least one variable is required";
       for (var i = 0; i < d.vars.length; i++) {
         var v = d.vars[i];
-        if (!/^[A-Za-z_]\w*$/.test(v.name)) return "Nome variabile non valido: '" + v.name + "'";
+        if (!/^[A-Za-z_]\w*$/.test(v.name)) return I18N_CUR==="it"?"Nome variabile non valido: '":"Invalid variable name: '" + v.name + "'";
         if (v.arr && (constEval(v.size) === null || constEval(v.size) < 1)) return "Dimensione array non valida per " + v.name;
       }
       return null;
     case "assign": case "input":
-      if (!d.var) return "Scegli una variabile";
+      if (!d.var) return I18N_CUR==="it"?"Scegli una variabile":"Choose a variable";
       if (d.index) { var e1 = tryParse(d.index, "Indice"); if (e1) return e1; }
-      if (b.type === "assign") { if (!d.expr) return "Manca l'espressione"; var e2 = tryParse(d.expr, "Espressione"); if (e2) return e2; }
+      if (b.type === "assign") { if (!d.expr) return I18N_CUR==="it"?"Manca l'espressione":"Missing expression"; var e2 = tryParse(d.expr, "Espressione"); if (e2) return e2; }
       return null;
     case "output":
       if (!d.expr) return "Manca l'espressione";
       return tryParse(d.expr, "Espressione");
     case "if": case "while": case "do":
-      if (!d.cond) return "Manca la condizione";
+      if (!d.cond) return I18N_CUR==="it"?"Manca la condizione":"Missing condition";
       return tryParse(d.cond, "Condizione");
     case "for":
-      if (!d.var) return "Scegli la variabile contatore";
-      if (constEval(d.step) === 0) return "Il passo non pu\u00f2 essere 0";
+      if (!d.var) return I18N_CUR==="it"?"Scegli la variabile contatore":"Choose the counter variable";
+      if (constEval(d.step) === 0) return I18N_CUR==="it"?"Il passo non pu\u00f2 essere 0":"The step cannot be 0";
       var eF = tryParse(d.from, "Da"); if (eF) return eF;
       var eT = tryParse(d.to, "A"); if (eT) return eT;
       var eS = tryParse(d.step, "Passo"); if (eS) return eS;
       return null;
     case "call":
-      if (!d.fn) return "Scegli una funzione";
+      if (!d.fn) return I18N_CUR==="it"?"Scegli una funzione":"Choose a function";
       var f = findFnByName(d.fn);
-      if (!f) return "Funzione inesistente";
-      if (d.args.length !== (f.params || []).length) return "Attesi " + (f.params || []).length + " argomenti";
+      if (!f) return I18N_CUR==="it"?"Funzione inesistente":"Unknown function";
+      if (d.args.length !== (f.params || []).length) return (I18N_CUR==="it"?"Attesi ":"Expected ") + (f.params || []).length + (I18N_CUR==="it"?" argomenti":" arguments");
       for (var j = 0; j < d.args.length; j++) {
-        if (!d.args[j]) return "Manca l'argomento " + (j + 1);
+        if (!d.args[j]) return (I18N_CUR==="it"?"Manca l'argomento ":"Missing argument ") + (j + 1);
         var eA = tryParse(d.args[j], "Argomento " + (j + 1)); if (eA) return eA;
       }
       return null;
@@ -3057,9 +3345,9 @@ function openFunctionModal(fn) {
   var isNew = !fn;
   var data = fn ? { name: fn.name, params: deepCopy(fn.params || []), ret: fn.ret } : { name: "Funzione" + (fns().length + 1), params: [], ret: null };
   var el;
-  modalOpen(isNew ? "Nuova funzione" : "Modifica funzione", function (body) {
+  modalOpen(isNew ? t("dlg.title.newFn") : t("dlg.title.editFn"), function (body) {
     var name = ftext(data.name);
-    body.appendChild(frow("Nome", name));
+    body.appendChild(frow(t("dlg.fnName"), name));
     var table = document.createElement("table");
     table.className = "rows-table";
     function renderP() {
@@ -3078,24 +3366,24 @@ function openFunctionModal(fn) {
       });
     }
     renderP();
-    body.appendChild(frow("Parametri", table));
+    body.appendChild(frow(t("dlg.params"), table));
     var addP = document.createElement("button");
     addP.className = "btn small";
-    addP.textContent = "+ parametro";
+    addP.textContent = t("dlg.addparam");
     addP.onclick = function () { data.params.push({ name: "p" + (data.params.length + 1), type: "Integer" }); renderP(); };
     body.appendChild(frow("", addP));
-    var ret = fsel([{ v: "", t: "nessuno (void)" }].concat(TYPES.map(function (t) { return { v: t, t: t }; })), data.ret || "");
-    body.appendChild(frow("Restituisce", ret));
+    var ret = fsel([{ v: "", t: t("dlg.returns.none") }].concat(TYPES.map(function (t) { return { v: t, t: t }; })), data.ret || "");
+    body.appendChild(frow(t("dlg.returns"), ret));
     el = { get: function () { return { name: name.value.trim(), params: data.params, ret: ret.value || null }; } };
   }, [
     { label: "Annulla", action: function (b, e, close) { close(); } },
     { label: "OK", primary: true, action: function (b, e, close) {
         var d = el.get();
-        if (!/^[A-Za-z_]\w*$/.test(d.name)) { e.textContent = "Nome non valido"; return; }
+        if (!/^[A-Za-z_]\w*$/.test(d.name)) { e.textContent = t("err.badName"); return; }
         var clash = fns().some(function (f) { return f !== fn && f.name.toLowerCase() === d.name.toLowerCase(); });
-        if (clash) { e.textContent = "Esiste gi\u00e0 una funzione con questo nome"; return; }
+        if (clash) { e.textContent = t("err.dupFn"); return; }
         for (var i = 0; i < d.params.length; i++) {
-          if (!/^[A-Za-z_]\w*$/.test(d.params[i].name)) { e.textContent = "Nome parametro non valido"; return; }
+          if (!/^[A-Za-z_]\w*$/.test(d.params[i].name)) { e.textContent = t("err.badParamName"); return; }
         }
         if (d.name.toLowerCase() === "main" && !isNew && fn && fn.name !== "Main" && fns()[0] !== fn) { /* ok */ }
         if (isNew) {
@@ -3116,14 +3404,14 @@ function openFunctionModal(fn) {
 function openExportModal() {
   var current = "python";
   var txt;
-  modalOpen("Esporta codice", function (body, close) {
+  modalOpen(t("export.title"), function (body, close) {
     var lang = fsel([
       { v: "python", t: "Python" },
       { v: "js", t: "JavaScript" },
       { v: "c", t: "C" },
       { v: "java", t: "Java" }
     ], current);
-    body.appendChild(frow("Linguaggio", lang));
+    body.appendChild(frow(t("export.lang"), lang));
     txt = document.createElement("textarea");
     txt.id = "codegen-text";
     txt.readOnly = true;
@@ -3134,12 +3422,12 @@ function openExportModal() {
       txt.value = genProgram(current);
     };
   }, [
-    { label: "Chiudi", action: function (b, e, close) { close(); } },
-    { label: "Copia", action: function () {
+    { label: t("dlg.close"), action: function (b, e, close) { close(); } },
+    { label: t("export.copy"), action: function () {
         txt.select();
         try { document.execCommand("copy"); } catch (err) {}
     } },
-    { label: "Scarica", primary: true, action: function () {
+    { label: t("export.download"), primary: true, action: function () {
         var ext = { python: "py", js: "js", c: "c", java: "java" }[current];
         download(fns()[0].name.replace(/\W+/g, "_").toLowerCase() + "." + ext, txt.value);
     } }
@@ -3148,7 +3436,7 @@ function openExportModal() {
 
 /* ---- help / about ---- */
 function openHelpModal() {
-  modalOpen("Guida rapida", function (body) {
+  modalOpen(t("help.title"), function (body) {
     body.innerHTML =
       '<div class="helpdoc">' +
       "<h4>Editor</h4>" +
@@ -3179,7 +3467,7 @@ function openHelpModal() {
   }, [{ label: "Chiudi", primary: true, action: function (b, e, close) { close(); } }]);
 }
 function openAboutModal() {
-  modalOpen("Informazioni", function (body) {
+  modalOpen(t("about.title"), function (body) {
     body.innerHTML =
       '<div class="helpdoc"><p><b>FlowWeb</b> \u2014 IDE a flowchart che gira interamente nel browser.</p>' +
       "<p>Ispirato all'interfaccia di Flowgorithm, ma \u00e8 un'implementazione originale e indipendente (nessun codice di Flowgorithm \u00e8 stato usato).</p>" +
@@ -3191,9 +3479,8 @@ function openAboutModal() {
 /* ============================================================== BOOT */
 function boot() {
   initTheme();
-  buildMenubar();
-  buildToolbar();
-  buildPalette();
+  initI18n();
+  applyI18n();
   setupDnD();
   setupSvgEvents();
   document.querySelectorAll(".btab").forEach(function (t) {
@@ -3216,7 +3503,7 @@ function boot() {
   }
   render();
   turtleReset();
-  consoleAppend("Benvenuto in FlowWeb \u2014 trascina i blocchi sul diagramma e premi Esegui (F5).\n", "sys");
+  consoleAppend(t("run.welcome") + "\n", "sys");
   setStatus("Pronto.");
 }
 
