@@ -3,8 +3,8 @@
 /**
  * Headless smoke tests for FlowWeb.
  *
- * Extracts the inline application script from index.html, runs it inside a
- * Node VM with minimal DOM stubs and exercises:
+ * Reads the ordered <script src> list from index.html, evaluates those
+ * source files inside a Node VM with minimal DOM stubs and exercises:
  *
  *   1. the expression parser (precedence, concatenation, indexing, calls)
  *   2. arithmetic semantics (integer division, modulo, power, div by zero)
