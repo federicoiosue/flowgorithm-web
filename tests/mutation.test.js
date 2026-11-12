@@ -110,6 +110,18 @@ const MUTANTS = [
     replace: 'lines.push("function " + (fn.name === "Main" ? "entry" : fn.name)',
   },
   {
+    id: "input-echo-no-newline",
+    desc: "input echo drops its trailing newline, jamming the next output on the same line",
+    find: 'RT.outLine("> " + fmt(v2) + "\\n", "in");',
+    replace: 'RT.outLine("> " + fmt(v2) + "", "in");',
+  },
+  {
+    id: "output-nl-undefined-drops-newline",
+    desc: "output block without an nl field stops emitting a newline",
+    find: 'RT.outLine(fmt(o) + (b.nl !== false ? "\\n" : ""));',
+    replace: 'RT.outLine(fmt(o) + (b.nl ? "\\n" : ""));',
+  },
+  {
     id: "render-drops-trailing-zone",
     desc: "drawChain omits the trailing insertion zone after the last block",
     find: 'addZone(arr, arr.length, F, ey + L.GAP / 2);',

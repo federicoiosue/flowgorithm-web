@@ -139,6 +139,23 @@ vm.runInContext(`
         .map((z) => z.index).sort((a, b) => a - b);
       return { body: m.body, loopBody: w.body, bodyIdx: idx(m.body), loopIdx: idx(w.body) };
     },
+    // declares x and runs the given blocks as Main, returning the console log
+    async runProgram(specs) {
+      const p = newProgram();
+      const m = p.functions[0];
+      const d = newBlock("declare");
+      d.vars = [{ name: "x", type: "Integer", arr: false, size: "10" }];
+      m.body.push(d);
+      for (const s of specs) {
+        const b = newBlock(s.type);
+        for (const k in s) if (k !== "type") b[k] = s[k];
+        m.body.push(b);
+      }
+      PROGRAM = p; curFnId = m.id;
+      globalThis.__log = "";
+      await startRun("run");
+      return globalThis.__log;
+    },
     parse, binop, EXAMPLES,
   };
 `, ctx);
@@ -197,6 +214,17 @@ function check(name, cond, extra) {
   T.setProgram(T.makeExample(4)); // turtle spiral
   const log4 = await T.run();
   check("interpreter: turtle spiral completes", log4.includes("Fatto!"), log4);
+
+  /* 3b. console line breaks */
+  T.setAnswers(["5"]);
+  const logIn = await T.runProgram([
+    { type: "input", var: "x" },
+    { type: "output", expr: '"Hello"' },
+  ]);
+  check("interpreter: input echo ends its line before the next output",
+    logIn.includes("> 5\nHello\n") && !logIn.includes("> 5Hello"), logIn);
+  const logNl = await T.runProgram([{ type: "output", expr: '"Hi"', nl: undefined }]);
+  check("interpreter: output without nl field still emits a newline", logNl.includes("Hi\n"), logNl);
 
   /* 4. runtime error reporting */
   const divZero = vm.runInContext(`(function () {

@@ -383,12 +383,12 @@ async function execBlock(b, frame) {
       var v2 = coerceInput(ans, rec.type);
       if (rec.arr) arraySet(rec, (await ev(parse(b.index), frame)), v2);
       else rec.value = v2;
-      RT.outLine("> " + fmt(v2), "in");
+      RT.outLine("> " + fmt(v2) + "\n", "in");
       return;
     }
     case "output": {
       var o = await ev(parse(b.expr), frame);
-      RT.outLine(fmt(o) + (b.nl ? "\n" : ""));
+      RT.outLine(fmt(o) + (b.nl !== false ? "\n" : ""));
       return;
     }
     case "if": {
